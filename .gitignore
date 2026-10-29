@@ -1,0 +1,17 @@
+# 构建产物与本地备份
+GestureKit.app/
+build-icon/
+backups/
+.DS_Store
+
+# 原版 App 的界面截图、逆向分析与导出的原版数据：只留在本机，不公开
+docs/ui/*.jpg
+docs/ALGORITHMS_RECOVERED.md
+docs/RE_APPENDIX.md
+docs/RE_MODULES.md
+docs/ORIGINAL_FEATURES.md
+docs/UI_UX_SPEC.md
+docs/reference/
+
+# 内部交接说明
+HANDOFF_PROMPT.md
