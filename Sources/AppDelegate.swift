@@ -26,6 +26,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var promptedForAccessibility = false
     private var wizardAutoShown = false
 
+    /// Cursor hint for a gesture that ran nothing (nil when it ran).
+    static func hint(for r: GestureRecord) -> String? {
+        switch r.via {
+        case .none:     return L("未识别")
+        case .unsure:   return L("把握不足，未执行：%@", r.action)
+        case .rejected: return L("已按你的反馈忽略：%@", r.action)
+        default:        return nil
+        }
+    }
+
     /// Run on the engine's (tap) thread.
     private func onEngine(_ block: @escaping (GestureEngine) -> Void) {
         guard let engine else { return }
@@ -80,6 +90,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         GestureTrail.shared.prepare()
+        // Every gesture → 手势记录; ones that ran nothing get a short hint at the cursor.
+        engine.onRecognized = { [weak self] result, points, app in
+            let record = GestureRecord(time: Date(), app: app, points: GestureHistory.compact(points),
+                                       gestureID: result.gestureID, score: result.score, via: result.via,
+                                       action: result.spec.flatMap(ActionCatalog.hudText(for:)) ?? "")
+            DispatchQueue.main.async {
+                GestureHistory.shared.add(record)
+                guard let self, self.config.showUnrecognized ?? true,
+                      let hint = AppDelegate.hint(for: record) else { return }
+                HUD.shared.show(hint, duration: 0.9)
+            }
+        }
         Actions.presenter = { [weak self] spec in
             guard let cfg = self?.config, cfg.showHUD ?? true,
                   spec.type != "volume",                     // shows the new level instead (levelPresenter)

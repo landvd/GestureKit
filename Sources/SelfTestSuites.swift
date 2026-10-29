@@ -14,6 +14,6 @@ extension SelfTest {
     static var suites: [(String, () -> [SelfTestCheck])] {
         [("actions", actionChecks), ("hid", hidChecks), ("permissions", permissionChecks),
          ("i18n", i18nChecks),
-         ("import", importChecks), ("actionsExt", actionExtChecks), ("ddc", ddcChecks), ("chord", chordChecks), ("perf", perfChecks)]
+         ("import", importChecks), ("actionsExt", actionExtChecks), ("ddc", ddcChecks), ("chord", chordChecks), ("history", historyChecks), ("perf", perfChecks)]
     }
 }

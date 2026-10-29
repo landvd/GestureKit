@@ -72,7 +72,19 @@ final class Actions {
         executor { [self] in self.execute(spec) }
     }
 
+    /// ⌘Q / 退出当前 App aimed at GestureKit itself (its settings window in front) would
+    /// quit the gesture tool mid-use: skipped.
+    static func quitsApp(_ spec: ActionSpec) -> Bool {
+        spec.type == "quitApp"
+            || (spec.type == "shortcut" && spec.keyCode == 12 && (spec.modifiers ?? 0) & 0x00100000 != 0)
+    }
+
     private func execute(_ spec: ActionSpec) {
+        if Actions.quitsApp(spec),
+           effects.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier {
+            effects.log("skipped quit: GestureKit itself is frontmost")
+            return
+        }
         switch spec.type {
         case "shortcut":   sendShortcut(keyCode: spec.keyCode ?? 0, modifiers: spec.modifiers ?? 0)
         case "window":     windowOp(spec.op ?? "")

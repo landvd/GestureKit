@@ -38,6 +38,10 @@ final class GestureEngine {
     /// selftest keeps it synchronous). The swallow/pass decision never waits for it,
     /// and the closure touches no engine state.
     var deferWork: (@escaping () -> Void) -> Void = { $0() }
+    /// Every finished stroke / chord+key gesture, with what it was taken for — feeds the
+    /// gesture history (手势记录) and the 「未识别」 hint. Called on the recognition queue
+    /// (strokes) or the tap thread (keys).
+    var onRecognized: ((_ result: Recognition, _ points: [CGPoint], _ app: String) -> Void)?
     var paused = false
     /// When set, ruleset lookup uses this bundle id instead of the frontmost app
     /// (used by --selftest so tests don't depend on what is in front).
@@ -143,6 +147,8 @@ final class GestureEngine {
                 let key = chordKey(for: event)
                 if let key, let spec = ruleset().gestures["twoKey.key.\(key)"] {
                     Actions.shared.perform(spec)
+                    onRecognized?(Recognition(gestureID: "twoKey.key.\(key)", spec: spec, score: 100, via: .key),
+                                  [], frontBundleID() ?? "")
                     chordKeyFired = key
                     return nil
                 }
@@ -250,17 +256,16 @@ final class GestureEngine {
         if chordKeyFired == nil, moved {
             // Recognition (~1–3 ms) runs after the tap callback returns, off the tap thread,
             // on a snapshot — so neither this release nor the next mouse event waits for DTW.
-            let rules = ruleset(), cfg = config
-            let dir = direction(from: start, to: point)
+            let rules = ruleset(), cfg = config, app = frontBundleID() ?? ""
+            let report = onRecognized
             deferWork {
-                // 1) 形状手势（与原版一致：DTW + 85 分阈值）
-                if let (spec, score) = GestureEngine.bestShapeMatch(points: points, rules: rules, config: cfg) {
-                    Log.write("shape gesture score=\(String(format: "%.1f", score))")
-                    Actions.shared.perform(spec)
-                } else if let spec = rules.gestures["twoKey.\(dir)"] {
-                    // 2) 回退：纯方向判定（兼容未配置字形的规则）
-                    Actions.shared.perform(spec)
+                let r = Recognizer.recognize(points: points, rules: rules, config: cfg)
+                if r.via == .shape { Log.write("shape gesture score=\(String(format: "%.1f", r.score))") }
+                if r.via != .shape && r.via != .direction {
+                    Log.write("gesture not run: \(r.via.rawValue) \(r.gestureID ?? "-") score=\(String(format: "%.1f", r.score))")
                 }
+                if r.fires, let spec = r.spec { Actions.shared.perform(spec) }
+                report?(r, points, app)
             }
         }
         if !points.isEmpty { onChordStroke?(points, true) }
@@ -324,15 +329,6 @@ final class GestureEngine {
         hypot(b.x - a.x, b.y - a.y)
     }
 
-    private func direction(from a: CGPoint, to b: CGPoint) -> String {
-        let dx = b.x - a.x
-        let dy = b.y - a.y                       // CG coordinates: +y is down
-        if abs(dx) > 2 * abs(dy) { return dx < 0 ? "left" : "right" }
-        if abs(dy) > 2 * abs(dx) { return dy < 0 ? "up" : "down" }
-        if dx < 0 { return dy < 0 ? "upLeft" : "downLeft" }
-        return dy < 0 ? "upRight" : "downRight"
-    }
-
     private func chordKey(for event: CGEvent) -> String? {
         let code = Int(event.getIntegerValueField(.keyboardEventKeycode))
         guard var ch = GestureEngine.keyChars[code] else { return nil }
@@ -345,34 +341,6 @@ final class GestureEngine {
     func endDrain() { draining = false }
 
     /// Match the drawn stroke against every rule whose gesture maps to a glyph.
-    /// Pure (no engine state): runs on the recognition queue.
-    static func bestShapeMatch(points: [CGPoint], rules: Ruleset, config: Config) -> (ActionSpec, Double)? {
-        guard points.count >= 2 else { return nil }
-        var best: (spec: ActionSpec, score: Double, polyline: Bool)?
-        for (id, spec) in rules.gestures {
-            let templates = shapeTemplates(forGestureID: id, config: config)
-            guard !templates.isEmpty else { continue }
-            let s = templates.map { ShapeMatcher.score(template: $0, drawn: points) }.max() ?? 0
-            let poly = GlyphLibrary.polylineIDs.contains(id)
-            // Same-shaped templates (↑→ / F, ↓→ / L) score the same: the polyline wins, so the
-            // result never depends on dictionary order.
-            if let b = best, s < b.score || (s == b.score && (b.polyline || !poly)) { continue }
-            best = (spec, s, poly)
-        }
-        let threshold = config.shapeThreshold ?? ShapeMatcher.scoreThreshold
-        guard let best, best.score > threshold else { return nil }
-        return (best.spec, best.score)
-    }
-
-    /// Built-in glyph, or a user-recorded stroke for `twoKey.custom.<name>`.
-    private static func shapeTemplates(forGestureID id: String, config: Config) -> [[CGPoint]] {
-        if id.hasPrefix(GlyphLibrary.customPrefix) {
-            return config.customGlyphs?[String(id.dropFirst(GlyphLibrary.customPrefix.count))].map { [$0] } ?? []
-        }
-        guard let glyph = GlyphLibrary.glyph(forGestureID: id) else { return [] }
-        return GlyphLibrary.templates(for: glyph)
-    }
-
     // MARK: - Hot corners + scroll
 
     private func handleCornerScroll(at point: CGPoint, event: CGEvent) {

@@ -17,7 +17,7 @@ enum UI {
 // MARK: - Sidebar model
 
 enum PrefPage: Int, CaseIterable, Identifiable {
-    case normalMouse, hotCorners, blacklist, rules, general
+    case normalMouse, hotCorners, history, blacklist, rules, general
 
     var id: Int { rawValue }
 
@@ -29,6 +29,7 @@ enum PrefPage: Int, CaseIterable, Identifiable {
         switch self {
         case .normalMouse: return "普通鼠标"
         case .hotCorners: return "边角触发"
+        case .history: return "手势记录"
         case .blacklist: return "黑名单"
         case .rules: return "规则管理"
         case .general: return "通用设置"
@@ -39,6 +40,7 @@ enum PrefPage: Int, CaseIterable, Identifiable {
         switch self {
         case .normalMouse: return "computermouse"
         case .hotCorners: return "square.grid.2x2"
+        case .history: return "clock.arrow.circlepath"
         case .blacklist: return "hand.raised"
         case .rules: return "list.bullet.rectangle"
         case .general: return "gearshape"
@@ -147,6 +149,10 @@ final class PrefModel: ObservableObject {
     }
     /// 设备页里选择的应用程序（"default" = 所有应用程序）
     @Published var selectedApp: String = "default"
+    /// 手势记录 (selftest gives the model an in-memory one).
+    var history: GestureHistory = .shared
+    /// 👎 sheet on the 手势记录 page.
+    @Published var ratingDraft: RatingDraft?
     /// 手势表格里选中的规则（gesture id），供 − 删除
     @Published var selectedRule: String?
     /// 非 nil 时弹出规则编辑面板
@@ -646,6 +652,7 @@ struct PreferencesView: View {
                     case .general: generalCards
                     case .rules:   rulesCards
                     case .blacklist: blacklistCard
+                    case .history:   HistoryPage(model: model, history: model.history)
                     default:       EmptyView()
                     }
                 }
@@ -991,6 +998,10 @@ struct PreferencesView: View {
                             .toggleStyle(.checkbox)
                         Text(L("*1,优先提示备注,没有备注时提示执行动作\n2,⚠️如果备注仅仅是空格,将不提示这条规则"))
                             .font(.system(size: 10)).foregroundColor(UI.secondary)
+                        Toggle(L("没认出或未执行时提示"), isOn: Binding(
+                            get: { model.config.showUnrecognized ?? true },
+                            set: { v in var c = model.config; c.showUnrecognized = v ? nil : false; model.save(c) }))
+                            .toggleStyle(.checkbox)
                     }
                     Spacer()
                 }

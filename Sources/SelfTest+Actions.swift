@@ -194,6 +194,20 @@ extension SelfTest {
             check("actions: brightness goes to DisplayBrightness with delta+target", okB)
         }
 
+        // MARK: never quit GestureKit itself
+        do {
+            let cmdQ = ActionSpec(type: "shortcut", keyCode: 12, modifiers: 0x00100000, label: "⌘Q", op: nil, delta: nil)
+            let me = NSRunningApplication.current
+            let selfFront = run(cmdQ) { $0.frontApp = me }
+            check("actions: ⌘Q is not sent while GestureKit itself is frontmost",
+                  selfFront.keys.isEmpty && selfFront.logs.contains { $0.contains("skipped quit") })
+            let other = run(cmdQ)
+            check("actions: ⌘Q still goes to other apps", other.keys.count == 2)
+            check("actions: 退出当前 App counts as quitting",
+                  Actions.quitsApp(ActionSpec(type: "quitApp", keyCode: nil, modifiers: nil, label: nil, op: nil, delta: nil))
+                  && !Actions.quitsApp(ActionSpec(type: "shortcut", keyCode: 13, modifiers: 0x00100000, label: nil, op: nil, delta: nil)))
+        }
+
         // MARK: representative system ops
         do {
             let t = system("newTab")

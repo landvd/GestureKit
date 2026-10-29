@@ -51,6 +51,9 @@ open -a ./GestureKit.app
 - SwiftUI 不能用 `@State` / `@StateObject`（宏，裸 swiftc 没有宏插件），用 ObservableObject + @Published。
 - 所有合成事件（按键、鼠标、滚动）必须打 `Actions.syntheticMarker`，否则会被自己的 tap 再处理。
 - 动作的副作用走 `Actions.effects`（`ActionEffects` 协议），测试用记录实现，不要直接调系统 API。
+- **识别**：`Recognizer.recognize`（纯函数，规则快照）决定命中哪个手势、是否命中反例、危险动作是否够把握；
+  结果同时用于执行动作和写「手势记录」（`GestureHistory`，history.json，最多 200 条）。
+  个人学习数据在配置里：`learnedStrokes`（正样本）/ `rejectedStrokes`（反例）。改识别逻辑先跑 `--perf` 看识别率与混淆。
 - **线程模型**：事件 tap 跑在独立线程 `TapThread`（不是主线程）。`GestureEngine` 的状态**只在这条线程上读写**：
   主线程改配置/暂停走 `TapThread.shared.perform`（AppDelegate 的 `onEngine` / `setEngineConfig`），
   主线程用 `AppDelegate.config` 副本；引擎把 UI 工作（窗口吸附、轨迹）经 `uiQueue` 交给主线程，

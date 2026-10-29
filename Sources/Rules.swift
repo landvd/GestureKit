@@ -82,6 +82,12 @@ struct Config: Codable {
     /// 鼠标手势怎么起手："chord"（缺省，按住左右双键）/ "right"（按住右键画；
     /// 单击右键不画则松开时补发右键，菜单照常）。规则 id 两种方式通用（twoKey.*）。
     var gestureButton: String?
+    /// 画了没认出来 / 被拦下时在光标旁提示（缺省开）
+    var showUnrecognized: Bool?
+    /// 从「手势记录」学到的个人笔画：手势 id → 若干笔（「我想画的是…」）。每个手势最多 5 笔。
+    var learnedStrokes: [String: [[CGPoint]]]?
+    /// 反例：手势 id → 用户说「不该触发」的笔画；与之相似的笔画不再触发该手势。每个最多 10 笔。
+    var rejectedStrokes: [String: [[CGPoint]]]?
     var rulesets: [String: Ruleset]
 
     static func loadOrCreate() -> Config {

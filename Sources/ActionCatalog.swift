@@ -100,7 +100,7 @@ enum ActionCatalog {
     /// Action column text ("快捷键" for shortcuts; the key itself goes in its own column).
     static func title(for spec: ActionSpec) -> String {
         switch spec.type {
-        case "shortcut":   return L("快捷键")
+        case "shortcut":   return shortcutPurpose(spec).map { L($0) } ?? L("快捷键")
         case "window":     return windowNames[spec.op ?? ""].map { L($0) } ?? (spec.op ?? "")
         case "snap":       return snapNames[spec.op ?? ""].map { L($0) } ?? (spec.op ?? "")
         case "system":     return systemNames[spec.op ?? ""].map { L($0) } ?? (spec.op ?? "")
@@ -152,8 +152,33 @@ enum ActionCatalog {
         if let note = spec.note, !note.isEmpty {
             return note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note
         }
-        if spec.type == "shortcut" { return spec.label ?? L("快捷键") }
+        if spec.type == "shortcut" {
+            if let p = shortcutPurpose(spec) { return L(p) }
+            return spec.label ?? L("快捷键")
+        }
         return title(for: spec)
+    }
+
+    /// What a common shortcut does, so the rule list and the HUD can say 「后退」 instead
+    /// of just 「快捷键」 (the keys themselves are in their own column). nil = unknown.
+    static func shortcutPurpose(_ spec: ActionSpec) -> String? {
+        let cmd: UInt32 = 0x00100000, shift: UInt32 = 0x00020000, ctrl: UInt32 = 0x00040000, opt: UInt32 = 0x00080000
+        let m = (spec.modifiers ?? 0) & (cmd | shift | ctrl | opt)
+        switch (spec.keyCode ?? -1, m) {
+        case (33, cmd): return "后退"
+        case (30, cmd): return "前进"
+        case (15, cmd): return "刷新"
+        case (13, cmd): return "关标签"
+        case (17, cmd): return "新标签"
+        case (17, cmd | shift): return "重新打开标签"
+        case (12, cmd): return "退出当前 App"
+        case (3, cmd | ctrl): return "切换全屏"
+        case (6, cmd): return "撤销"
+        case (6, cmd | shift): return "重做"
+        case (8, cmd): return "复制"
+        case (9, cmd): return "粘贴"
+        default: return nil
+        }
     }
 
     // MARK: - Editor choices

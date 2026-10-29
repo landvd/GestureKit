@@ -184,7 +184,7 @@ struct RuleDraft: Identifiable {
 
     /// Click gestures that take over every ordinary click of that kind.
     /// Same-shaped gestures: ↑→ is drawn exactly like the letter F, ↓→ like L.
-    /// When a rule set has both, the polyline wins (GestureEngine.bestShapeMatch).
+    /// When a rule set has both, the polyline wins (Recognizer.recognize).
     static func gestureHint(_ id: String) -> String? {
         switch id {
         case "twoKey.upThenRight", "twoKey.key.f":
