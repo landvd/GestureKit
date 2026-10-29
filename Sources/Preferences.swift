@@ -566,14 +566,11 @@ struct PreferencesView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(red: 0.98, green: 0.55, blue: 0.75),
-                                                  Color(red: 0.55, green: 0.75, blue: 1.0)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 64, height: 64)
-                    .overlay(Image(systemName: "cursorarrow.rays")
-                                .font(.system(size: 26, weight: .semibold))
-                                .foregroundColor(.white))
+                // The app icon itself (Resources/AppIcon.icns, scripts/make-icon.swift)
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 76, height: 76)
                 Text(L("GestureKit：%@", appVersion))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.primary)

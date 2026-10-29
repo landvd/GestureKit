@@ -149,6 +149,7 @@ struct Config: Codable {
             ActionSpec(type: "shortcut", keyCode: key, modifiers: mods, label: label,
                        op: nil, delta: nil)
         }
+        func noted(_ a: ActionSpec, _ note: String) -> ActionSpec { var a = a; a.note = note; return a }
         func window(_ op: String, _ label: String) -> ActionSpec {
             ActionSpec(type: "window", keyCode: nil, modifiers: nil, label: label,
                        op: op, delta: nil)
@@ -165,14 +166,15 @@ struct Config: Codable {
 
         let general = Ruleset(gestures: [
             // two-button drag directions
-            "twoKey.left":      shortcut(30, cmd, "⌘]"),
-            "twoKey.right":     shortcut(33, cmd, "⌘["),
+            // ← 后退 / → 前进（与浏览器 ⌘[ / ⌘] 一致）
+            "twoKey.left":      noted(shortcut(33, cmd, "⌘["), "后退"),
+            "twoKey.right":     noted(shortcut(30, cmd, "⌘]"), "前进"),
             "twoKey.upLeft":    window("restore", "恢复最小化"),
             "twoKey.downRight": window("minimize", "最小化"),
             "twoKey.upRight":   window("fullscreen", "全屏/退出全屏"),
-            "twoKey.downLeft":  shortcut(3, cmdCtrl, "⌃⌘F"),
+            "twoKey.downLeft":  noted(shortcut(3, cmdCtrl, "⌃⌘F"), "退出全屏"),
             // 上下 ↑↓：刷新
-            "twoKey.upThenDown": { var r = shortcut(15, cmd, "⌘R"); r.note = "刷新"; return r }(),
+            "twoKey.upThenDown": noted(shortcut(15, cmd, "⌘R"), "刷新"),
             // two-button + key
             "twoKey.key.a":     window("minimizeAll", "全部最小化"),
             "twoKey.key.v":     window("restoreAll", "恢复全部"),

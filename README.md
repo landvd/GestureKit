@@ -1,7 +1,11 @@
-# GestureKit 0.2 — 自建鼠标手势工具
+<p align="center"><img src="docs/images/icon.png" width="128" alt="GestureKit"></p>
 
-用 Swift 从零实现的 macOS 菜单栏手势工具，替代 BetterAndBetter 2.7.9（不包含原厂商的任何代码/资源）。
-不联网、不上报、无第三方依赖。代码在 `Sources/`，开发说明见 `CLAUDE.md` 与 `docs/`。
+# GestureKit 0.3 — macOS 鼠标手势
+
+按住右键画一笔，就能后退、刷新、最小化、切全屏……一个小巧的 macOS 菜单栏工具。
+Swift 从零实现，不联网、不上报、无第三方依赖。代码在 `Sources/`，开发说明见 `CLAUDE.md` 与 `docs/`。
+
+<p align="center"><img src="docs/images/screenshot.png" width="760" alt="手势设置"></p>
 
 ## 能做什么
 

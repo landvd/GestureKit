@@ -108,8 +108,8 @@ extension SelfTest {
             _ = e.handle(type: .leftMouseUp, event: ev(.leftMouseUp, CGPoint(x: 480, y: 500), button: 0))
             check("hid: left + side-4 chord swallows side down/drag/up",
                   ld != nil && sd == nil && dragSwallowed && su == nil)
-            check("hid: left + side-4 chord ← fires ⌘]",
-                  fired.first?.type == "shortcut" && fired.first?.keyCode == 30,
+            check("hid: left + side-4 chord ← fires ⌘[ 后退",
+                  fired.first?.type == "shortcut" && fired.first?.keyCode == 33,
                   "got \(fired.first.map { "\($0.type)/\($0.keyCode ?? -1)" } ?? "nil")")
         }
 
@@ -125,9 +125,9 @@ extension SelfTest {
             }
             let su = e.handle(type: .otherMouseUp, event: ev(.otherMouseUp, CGPoint(x: 720, y: 500), button: 4))
             _ = e.handle(type: .otherMouseUp, event: ev(.otherMouseUp, CGPoint(x: 720, y: 500), button: 2))
-            check("hid: middle + side-5 chord → fires ⌘[",
+            check("hid: middle + side-5 chord → fires ⌘] 前进",
                   md != nil && sd == nil && su == nil
-                    && fired.first?.type == "shortcut" && fired.first?.keyCode == 33)
+                    && fired.first?.type == "shortcut" && fired.first?.keyCode == 30)
         }
 
         // MARK: 设备属性解析

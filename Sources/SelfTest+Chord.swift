@@ -113,7 +113,7 @@ extension SelfTest {
             var r = run(rightEngine(), [(.rightMouseDown, a, 1), (.rightMouseDragged, b, 1), (.rightMouseUp, b, 1)])
             check("right mode: right-drag → gesture, all right events swallowed",
                   r == [false, false, false] && fired.count == 1 && replayed.isEmpty, "\(r) fired=\(fired.count)")
-            check("right mode: right-drag → twoKey.right rule (⌘[)", fired.first?.keyCode == 33)
+            check("right mode: right-drag → twoKey.right rule (⌘] 前进)", fired.first?.keyCode == 30)
 
             // 单击右键（不动或抖几个像素）→ 不触发动作，在按下的位置补发右键（菜单照常）
             fired = []; replayed = []

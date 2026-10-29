@@ -40,11 +40,11 @@ enum SelfTest {
 
         let origin = CGPoint(x: 600, y: 500)
 
-        expect("twoKey.right → ⌘[", { chord(origin, CGPoint(x: 700, y: 500)) }) {
-            $0?.type == "shortcut" && $0?.keyCode == 33
+        expect("twoKey.right → ⌘] 前进", { chord(origin, CGPoint(x: 700, y: 500)) }) {
+            $0?.type == "shortcut" && $0?.keyCode == 30 && $0?.note == "前进"
         }
-        expect("twoKey.left → ⌘]", { chord(origin, CGPoint(x: 500, y: 500)) }) {
-            $0?.type == "shortcut" && $0?.keyCode == 30
+        expect("twoKey.left → ⌘[ 后退", { chord(origin, CGPoint(x: 500, y: 500)) }) {
+            $0?.type == "shortcut" && $0?.keyCode == 33 && $0?.note == "后退"
         }
         expect("twoKey.downRight → minimize", { chord(origin, CGPoint(x: 680, y: 580)) }) {
             $0?.type == "window" && $0?.op == "minimize"
@@ -128,13 +128,13 @@ enum SelfTest {
                 _ = engine.handle(type: .leftMouseDragged, event: d)
             }
             _ = engine.handle(type: .leftMouseUp, event: mouse(.leftMouseUp, CGPoint(x: 560, y: 500), button: .left))
-        }) { $0?.type == "shortcut" && $0?.keyCode == 30 }
+        }) { $0?.type == "shortcut" && $0?.keyCode == 33 }
 
-        expect("shape ← → ⌘]", { draw([CGPoint(x: 600, y: 400), CGPoint(x: 480, y: 400)]) }) {
-            $0?.type == "shortcut" && $0?.keyCode == 30
-        }
-        expect("shape → → ⌘[", { draw([CGPoint(x: 600, y: 400), CGPoint(x: 720, y: 400)]) }) {
+        expect("shape ← → ⌘[", { draw([CGPoint(x: 600, y: 400), CGPoint(x: 480, y: 400)]) }) {
             $0?.type == "shortcut" && $0?.keyCode == 33
+        }
+        expect("shape → → ⌘]", { draw([CGPoint(x: 600, y: 400), CGPoint(x: 720, y: 400)]) }) {
+            $0?.type == "shortcut" && $0?.keyCode == 30
         }
         expect("shape A → minimizeAll", {
             draw([CGPoint(x: 600, y: 500), CGPoint(x: 660, y: 380), CGPoint(x: 720, y: 500)])
@@ -276,7 +276,7 @@ enum SelfTest {
                 _ = engine.handle(type: .rightMouseDown, event: mouse(.rightMouseDown, CGPoint(x: 600, y: 400), button: .right))
                 _ = engine.handle(type: .leftMouseDragged, event: mouse(.leftMouseDragged, CGPoint(x: 720, y: 400), button: .left))
                 _ = engine.handle(type: .leftMouseUp, event: mouse(.leftMouseUp, CGPoint(x: 720, y: 400), button: .left))
-            }) { $0?.label != "custom" && $0?.keyCode == 33 }
+            }) { $0?.label != "custom" && $0?.keyCode == 30 }
 
             let model = PrefModel(config: .defaultConfig)
             model.page = .normalMouse
@@ -583,7 +583,7 @@ enum SelfTest {
             let r = PrefModel.resetRules(cfg, page: .normalMouse, app: "default")
             let g = r.rulesets["default"]!.gestures
             let factory = Config.defaultConfig.rulesets["default"]!.gestures.filter { $0.key.hasPrefix("twoKey.") }
-            check("reset: page rules back to factory", g["twoKey.key.z"] == nil && g["twoKey.left"]?.keyCode == 30
+            check("reset: page rules back to factory", g["twoKey.key.z"] == nil && g["twoKey.left"]?.keyCode == 33
                   && g.keys.filter { $0.hasPrefix("twoKey.") }.count == factory.count)
             check("reset: other pages untouched", g["trackpad.3f.tap"]?.op == "missionControl" && g["corner.topRight.up"] != nil)
             let other = PrefModel.resetRules(cfg, page: .normalMouse, app: "com.example.none")
