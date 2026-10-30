@@ -52,7 +52,7 @@ extension SelfTest {
             let cmdQ = ActionSpec(type: "shortcut", keyCode: 12, modifiers: 0x00100000, label: "⌘Q", op: nil, delta: nil)
             var c = cfg(["twoKey.key.<": cmdQ])
             c.shapeThreshold = 40                                   // let a so-so stroke pass the normal bar
-            let soso = stroke([P(0, 0), P(-120, 40), P(-20, 120)])  // a lopsided "<"
+            let soso = stroke([P(0, 0), P(-100, 20), P(-30, 130)])  // a lopsided "<" (scores ~81)
             let r = rec(c, soso)
             check("danger: a so-so match does not run ⌘Q", r.via == .unsure && !r.fires,
                   "\(r.via) \(Int(r.score))")
@@ -161,7 +161,11 @@ extension SelfTest {
             check("learn: after 「我想画的是 上下」, a similar wiggle runs 上下", r.fires && r.gestureID == "twoKey.upThenDown",
                   "\(r.via) \(r.gestureID ?? "-") \(Int(r.score))")
             check("learn: the built-in 上下 still works", rec(c, stroke([P(0, 0), P(0, -180), P(0, 0)])).gestureID == "twoKey.upThenDown")
-            for _ in 0..<8 { c = GestureHistory.learning(from: record, intended: "twoKey.upThenDown", into: c) }
+            for k in 0..<8 {                                     // 8 different strokes
+                var other = record
+                other.points = GestureHistory.compact(stroke([P(0, 0), P(60, -120 - CGFloat(k) * 4), P(120, 0), P(180, -120)]))
+                c = GestureHistory.learning(from: other, intended: "twoKey.upThenDown", into: c)
+            }
             check("learn: at most \(GestureHistory.maxLearned) strokes per gesture",
                   c.learnedStrokes?["twoKey.upThenDown"]?.count == GestureHistory.maxLearned)
         }
@@ -189,6 +193,45 @@ extension SelfTest {
             let legacy = #"{"version":1,"enabled":true,"minDistance":24,"cornerSize":40,"rulesets":{}}"#
             let old = try? JSONDecoder().decode(Config.self, from: Data(legacy.utf8))
             check("learn: old rules.json loads with no learning data", old != nil && old?.learnedStrokes == nil)
+        }
+
+        // 优化（来自真实手势记录）
+        do {
+            // 同分时结果固定：不随字典顺序变化
+            let s1 = stroke([P(0, 0), P(40, -150), P(160, -120), P(200, 20)])
+            var tie = cfg(["twoKey.upThenRight": act("关标签"), "twoKey.downThenRight": act("下一标签")])
+            tie.learnedStrokes = ["twoKey.upThenRight": [GestureHistory.compact(s1)], "twoKey.downThenRight": [GestureHistory.compact(s1)]]
+            let picks = Set((0..<30).map { _ in rec(tie, s1).gestureID ?? "-" })
+            check("tune: equal scores always pick the same gesture", picks.count == 1, "\(picks)")
+
+            // 教过的样本：危险动作也直接执行
+            let cmdQ = ActionSpec(type: "shortcut", keyCode: 12, modifiers: 0x00100000, label: "⌘Q", op: nil, delta: nil)
+            var c = cfg(["twoKey.key.<": cmdQ])
+            c.shapeThreshold = 40
+            let lopsided = stroke([P(0, 0), P(-100, 20), P(-30, 130)])      // scores ~81
+            check("tune: an untaught so-so 「<」 still needs more confidence", rec(c, lopsided).via == .unsure)
+            let r = GestureRecord(time: Date(), app: "", points: GestureHistory.compact(lopsided), gestureID: "twoKey.key.<",
+                                  score: 80, via: .unsure, action: "退出当前 App", rating: .bad, intended: "twoKey.key.<")
+            c = GestureHistory.learning(from: r, intended: "twoKey.key.<", into: c)
+            let again = rec(c, stroke([P(0, 0), P(-98, 24), P(-34, 126)]))
+            check("tune: once taught, your own 「<」 runs ⌘Q", again.fires, "\(again.via) \(Int(again.score))")
+            check("tune: danger threshold is 88", Recognizer.dangerThreshold == 88)
+
+            // 一笔只属于一个手势：改教给 X 时从别的手势里拿掉
+            var d = cfg(["twoKey.upThenRight": act("关标签"), "twoKey.downThenRight": act("下一标签")])
+            let rr = GestureRecord(time: Date(), app: "", points: GestureHistory.compact(s1), gestureID: nil,
+                                   score: 0, via: .none, action: "")
+            d = GestureHistory.learning(from: rr, intended: "twoKey.downThenRight", into: d)
+            d = GestureHistory.learning(from: rr, intended: "twoKey.upThenRight", into: d)
+            check("tune: re-teaching a stroke moves it, not copies it",
+                  d.learnedStrokes?["twoKey.upThenRight"]?.count == 1 && d.learnedStrokes?["twoKey.downThenRight"] == nil)
+
+            // 旧数据：同一笔挂在两个手势下 → 以记录里最新的评价为准
+            var rated = rr; rated.rating = .bad; rated.intended = "twoKey.upThenRight"
+            let fixed = GestureHistory.reconcile(tie, with: [rated])
+            check("tune: old duplicate samples follow the latest rating",
+                  fixed.learnedStrokes?["twoKey.upThenRight"]?.count == 1 && fixed.learnedStrokes?["twoKey.downThenRight"] == nil)
+            check("tune: samples with no rating are kept", GestureHistory.reconcile(tie, with: []).learnedStrokes?.count == 2)
         }
         return out
     }

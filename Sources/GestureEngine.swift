@@ -3,24 +3,14 @@ import Cocoa
 /// Recognises the gestures the user actually configured and dispatches actions.
 ///
 /// Threading (app): every member is used on the tap thread only (`TapThread`). The app
-/// changes `config` / `paused` through `TapThread.perform`; the engine sends main-thread
-/// work (window dock, trail) through `uiQueue` and hands outside updates (screen layout,
-/// front app) back through `engineQueue`. Selftests leave all hooks synchronous.
+/// changes `config` / `paused` through `TapThread.perform`; outside updates (screen
+/// layout, front app) come back through `engineQueue`; the trail goes to the main thread
+/// from `onChordStroke`. Selftests leave all hooks synchronous.
 final class GestureEngine {
 
     var config: Config {
-        didSet {
-            let auto = config.windowDock ?? false
-            let revealAll = oldValue.windowDock == true && config.windowDock != true
-            uiQueue { [dock] in
-                dock.autoDock = auto
-                if revealAll { dock.revealAll() }
-            }
-            rulesetCache = [:]
-        }
+        didSet { rulesetCache = [:] }
     }
-    /// Runs main-thread work (window dock, trail). App: main.async; selftest: inline.
-    var uiQueue: (@escaping () -> Void) -> Void = { $0() }
     /// Runs a state update on the engine's own thread. App: TapThread.perform; selftest: inline.
     var engineQueue: (@escaping () -> Void) -> Void = { $0() }
     /// Trail updates are sent at most this often while drawing (0 = every point, selftest).
@@ -29,7 +19,6 @@ final class GestureEngine {
     /// Merged rules per bundle id (rebuilt after a config change); keeps dictionary
     /// work off the per-keystroke tap path.
     private var rulesetCache: [String: Ruleset] = [:]
-    let dock = WindowDock()
     /// Chord stroke observer for the on-screen trail: (points so far, finished). Called on
     /// the tap thread, at most every `strokeInterval` while drawing; must stay cheap.
     var onChordStroke: ((_ points: [CGPoint], _ finished: Bool) -> Void)?
@@ -86,7 +75,6 @@ final class GestureEngine {
 
     init(config: Config) {
         self.config = config
-        dock.autoDock = config.windowDock ?? false
     }
 
     // MARK: - Entry point from the event tap
@@ -94,20 +82,6 @@ final class GestureEngine {
     func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         // Events we synthesized (shortcuts, clicks, replayed right click) must not be re-processed.
         if Actions.isSynthetic(event) { return Unmanaged.passUnretained(event) }
-        // Window dock observes (never swallows); runs even when paused so parked windows stay reachable.
-        switch type {
-        case .mouseMoved:
-            let p = cocoaPoint(event.location)
-            uiQueue { [dock] in dock.mouseMoved(to: p) }
-            return Unmanaged.passUnretained(event)
-        case .leftMouseDown:
-            let p = cocoaPoint(event.location)
-            uiQueue { [dock] in dock.mouseDown(at: p) }
-        case .leftMouseUp:
-            let p = cocoaPoint(event.location)
-            uiQueue { [dock] in dock.mouseUp(at: p) }
-        default: break
-        }
         guard config.enabled, !paused else { return Unmanaged.passUnretained(event) }
         if isBlacklisted() { return Unmanaged.passUnretained(event) }
         let point = event.location

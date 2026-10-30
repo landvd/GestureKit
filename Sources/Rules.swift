@@ -71,8 +71,6 @@ struct Config: Codable {
     /// 自定义绘图手势的模板笔画：name → 点（CG 坐标，y 向下）。
     /// 规则用 `twoKey.custom.<name>` 引用。
     var customGlyphs: [String: [CGPoint]]?
-    /// 拖动窗口到屏幕左右外缘时自动吸附（默认关：macOS 15 拖到边缘会触发系统平铺）
-    var windowDock: Bool?
     /// 菜单栏图标（缺省显示）。隐藏后再次打开 App 会弹出设置窗口
     var showMenuBarIcon: Bool?
     /// 手势轨迹（缺省显示，浅蓝 3pt）
@@ -100,7 +98,7 @@ struct Config: Codable {
             if let cfg = try? JSONDecoder().decode(Config.self, from: data) {
                 let (slim, removed) = cfg.withoutRemovedFeatures()
                 guard removed > 0 else { return cfg }
-                // 一次性迁移：精简掉的功能（触控板 / 键盘触发 / 妙控鼠标 / 脚本）留下的规则已不会触发
+                // 一次性迁移：精简掉的功能（触控板 / 键盘触发 / 妙控鼠标 / 脚本 / 窗口吸附）留下的规则已不会触发
                 ConfigIO.backup(url, tag: "before-slim")
                 Log.write("config: removed \(removed) rule(s) of removed features (trackpad / keyboard / magic mouse / script)")
                 save(slim)
@@ -117,14 +115,15 @@ struct Config: Codable {
         return cfg
     }
 
-    /// Rules that can no longer fire since trackpad gestures, keyboard triggers, Magic Mouse
-    /// and the script library were removed. Returns the config without them and how many were dropped.
+    /// Rules that can no longer fire since trackpad gestures, keyboard triggers, Magic Mouse,
+    /// the script library and window docking were removed. Returns the config without them and how many were dropped.
     func withoutRemovedFeatures() -> (Config, Int) {
         var c = self, removed = 0
         for (app, rs) in rulesets {
             let kept = rs.gestures.filter { id, spec in
                 !id.hasPrefix("keyboard.") && !id.hasPrefix("magicMouse.") && !id.hasPrefix("trackpad.")
                     && spec.type != "script"
+                    && !(spec.type == "window" && ["dockLeft", "dockRight"].contains(spec.op ?? ""))
             }
             removed += rs.gestures.count - kept.count
             c.rulesets[app] = Ruleset(gestures: kept)

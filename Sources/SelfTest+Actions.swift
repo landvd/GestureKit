@@ -13,7 +13,7 @@ final class RecordingActionEffects: ActionEffects {
         case post(CGEvent)
         case axSet(String), axPerform(String)
         case run(String, [String], wait: Bool)
-        case appleScript(String)
+        case appleScript(String), terminate(String)
         case volume(Double)
         case open(URL), openApplication(URL)
         case coreDock(String), lockScreen, setBluetooth(Int32), selectInputSource
@@ -63,6 +63,7 @@ final class RecordingActionEffects: ActionEffects {
     func open(_ url: URL) { calls.append(.open(url)) }
     func applicationURL(bundleID: String) -> URL? { installedApps[bundleID] }
     func openApplication(_ url: URL) { calls.append(.openApplication(url)) }
+    func terminate(_ app: NSRunningApplication) { calls.append(.terminate(app.bundleIdentifier ?? "?")) }
     func fileExists(_ path: String) -> Bool { existingPaths.contains(path) }
     var cursorLocation: CGPoint { cursor }
     /// Physical button state seen by actions; tests flip it to simulate a held button.
@@ -201,8 +202,11 @@ extension SelfTest {
             let selfFront = run(cmdQ) { $0.frontApp = me }
             check("actions: ⌘Q is not sent while GestureKit itself is frontmost",
                   selfFront.keys.isEmpty && selfFront.logs.contains { $0.contains("skipped quit") })
-            let other = run(cmdQ)
-            check("actions: ⌘Q still goes to other apps", other.keys.count == 2)
+            let finder = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.finder" }
+            let other = run(cmdQ) { $0.frontApp = finder }
+            let quitOK = other.keys.isEmpty && other.calls.contains { if case .terminate("com.apple.finder") = $0 { return true }; return false }
+            check("actions: ⌘Q asks the front app to quit (not a quick key press WeChat ignores)", finder == nil || quitOK,
+                  "\(other.calls)")
             check("actions: 退出当前 App counts as quitting",
                   Actions.quitsApp(ActionSpec(type: "quitApp", keyCode: nil, modifiers: nil, label: nil, op: nil, delta: nil))
                   && !Actions.quitsApp(ActionSpec(type: "shortcut", keyCode: 13, modifiers: 0x00100000, label: nil, op: nil, delta: nil)))

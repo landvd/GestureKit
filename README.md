@@ -13,10 +13,10 @@ Swift 从零实现，不联网、不上报、无第三方依赖。代码在 `Sou
 |---|---|
 | 鼠标手势 | 按住右键（或左右双键，「通用设置」里选）画形状：4 个直线方向、4 个斜线、**4 个折线（上左 ↑← / 上右 ↑→ / 下左 ↓← / 下右 ↓→）、上下 ↑↓（默认刷新）**、`< >`、A–Z 字母，或**自己画的图形**；得分 > 85 才触发。按住时按字母键也可触发 |
 | 边角 | 光标顶到屏幕角落再滚轮（默认右上角调音量、左下角调外接屏亮度） |
-| 动作 | 115 个预设：窗口（最小化/全屏/半屏/四分屏/居中/跨屏/吸附到边缘…）、标签页、App 切换、Finder、系统开关、媒体键、键盘背光、截图、鼠标点击；另有快捷键、**打开 App / 网址 / 文件**、**输入文字**、**运行快捷指令**、音量、亮度（含外接屏 DDC） |
+| 动作 | 115 个预设：窗口（最小化/全屏/半屏/四分屏/居中/跨屏…）、标签页、App 切换、Finder、系统开关、媒体键、键盘背光、截图、鼠标点击；另有快捷键、**打开 App / 网址 / 文件**、**输入文字**、**运行快捷指令**、音量、亮度（含外接屏 DDC） |
 | 手势记录 | 最近 200 次手势（笔画缩略图、识别结果、分数），可 👍 / 👎 评价；👎 时选「我想画的是…」就把这一笔学成该手势，选「不该触发」就记成反例——**越用越顺** |
 | 防误触 | 没认出来就什么都不做并提示「未识别」；退出 / 关闭类动作需要更高把握（92 分）；GestureKit 自己在最前面时不执行 ⌘Q |
-| 其它 | 手势轨迹、动作提示气泡（HUD，调音量时显示当前音量）、窗口吸附、按 App 分组的规则（App 专属优先，其余沿用全局；「普通鼠标」页的应用程序下拉里可「添加应用程序…」）、黑名单、中英文界面 |
+| 其它 | 手势轨迹、动作提示气泡（HUD，调音量时显示当前音量）、按 App 分组的规则（App 专属优先，其余沿用全局；「普通鼠标」页的应用程序下拉里可「添加应用程序…」）、黑名单、中英文界面 |
 | 规则管理 | 设置窗口里增删改；导入/导出；**导入原版 `.BABPreset`**（触控板、妙控鼠标、键盘规则会列入跳过）；每天自动备份（保留 5 份） |
 
 ## 安装
@@ -66,6 +66,7 @@ cd ~/Documents/DSH/GestureKit
 /Applications/GestureKit.app/Contents/MacOS/GestureKit --ddc-probe           # 列出外接屏 DDC 通道（只读）
 /Applications/GestureKit.app/Contents/MacOS/GestureKit --ddc-test            # 向每台外接屏查询亮度并打印原始回包（只查询不设置）
 /Applications/GestureKit.app/Contents/MacOS/GestureKit --ui-click-test       # 用真实鼠标逐个点设置窗口的侧栏和页签并校验（约 25 秒，期间别动鼠标）
+/Applications/GestureKit.app/Contents/MacOS/GestureKit --replay-history      # 用当前规则重放「手势记录」，看哪些笔现在会认对 / 认错（只读）
 /Applications/GestureKit.app/Contents/MacOS/GestureKit --tap-isolation-test  # 主线程被卡住时，光标事件是否仍然及时处理（约 3 秒）
 /Applications/GestureKit.app/Contents/MacOS/GestureKit --preset-check 文件.BABPreset  # 预览原版预设能导入什么、与当前规则的差别（只读）
 /Applications/GestureKit.app/Contents/MacOS/GestureKit --selftest            # 运行自检
@@ -75,7 +76,7 @@ cd ~/Documents/DSH/GestureKit
 
 ## 0.3 精简（2026-10-29）
 
-为聚焦鼠标手势主功能，已移除：触控板手势、平滑滚轮及滚轮方向反转、妙控鼠标、键盘快捷键触发、脚本库（含「运行脚本」动作）、
+为聚焦鼠标手势主功能，已移除：窗口吸附、触控板手势、平滑滚轮及滚轮方向反转、妙控鼠标、键盘快捷键触发、脚本库（含「运行脚本」动作）、
 iCloud 云同步、学习教程 / 免费 Apps / 问题反馈页。首次启动新版时，`rules.json` 里这些功能留下的规则会被清掉
 （先备份为 `rules.before-slim-*.json`）。旧代码打包在 `backups/before-slim-*.tgz`。
 

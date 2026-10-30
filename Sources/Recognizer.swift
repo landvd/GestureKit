@@ -24,9 +24,11 @@ struct Recognition {
 
 enum Recognizer {
 
-    /// Quitting / closing need a surer match than the 85 the other gestures use: a stroke
-    /// that only just passed (88.3) once quit GestureKit itself.
-    static let dangerThreshold = 92.0
+    /// Quitting / closing need a surer match than the 85 the other gestures use. 92 turned
+    /// out too strict in real use (the user's own 「<」 / 「上右」 scored 85–92 and were
+    /// rated 「正常手势」), so 88 — and none at all once the stroke matches a sample the
+    /// user taught that gesture.
+    static let dangerThreshold = 88.0
 
     static func isDangerous(_ spec: ActionSpec) -> Bool {
         let cmd: UInt32 = 0x00100000
@@ -57,7 +59,7 @@ enum Recognizer {
             if matchesRejected(points, id: best.id, config: config, threshold: threshold) {
                 return Recognition(gestureID: best.id, spec: best.spec, score: best.score, via: .rejected)
             }
-            if isDangerous(best.spec), best.score < max(threshold, dangerThreshold) {
+            if isDangerous(best.spec), !best.taught, best.score < max(threshold, dangerThreshold) {
                 return Recognition(gestureID: best.id, spec: best.spec, score: best.score, via: .unsure)
             }
             return Recognition(gestureID: best.id, spec: best.spec, score: best.score, via: .shape)
@@ -87,21 +89,29 @@ enum Recognizer {
 
     // MARK: - Shapes
 
+    /// Best-scoring rule. `taught`: the score came from a stroke the user taught this gesture.
+    /// Ties never depend on dictionary order: polyline over letter (↑→ = F, ↓→ = L), then a
+    /// taught match over a built-in one, then the id.
     private static func bestShape(points: [CGPoint], rules: Ruleset, config: Config)
-        -> (id: String, spec: ActionSpec, score: Double)? {
+        -> (id: String, spec: ActionSpec, score: Double, taught: Bool)? {
         guard points.count >= 2 else { return nil }
-        var best: (id: String, spec: ActionSpec, score: Double, polyline: Bool)?
+        typealias Cand = (id: String, spec: ActionSpec, score: Double, polyline: Bool, taught: Bool)
+        func better(_ a: Cand, than b: Cand) -> Bool {
+            if a.score != b.score { return a.score > b.score }
+            if a.polyline != b.polyline { return a.polyline }
+            if a.taught != b.taught { return a.taught }
+            return a.id < b.id
+        }
+        var best: Cand?
         for (id, spec) in rules.gestures {
             let templates = shapeTemplates(forGestureID: id, config: config)
             guard !templates.isEmpty else { continue }
             let s = templates.map { ShapeMatcher.score(template: $0, drawn: points) }.max() ?? 0
-            let poly = GlyphLibrary.polylineIDs.contains(id)
-            // Same-shaped templates (↑→ / F, ↓→ / L) score the same: the polyline wins, so the
-            // result never depends on dictionary order.
-            if let b = best, s < b.score || (s == b.score && (b.polyline || !poly)) { continue }
-            best = (id, spec, s, poly)
+            let learned = (config.learnedStrokes?[id] ?? []).map { ShapeMatcher.score(template: $0, drawn: points) }.max() ?? 0
+            let c: Cand = (id, spec, s, GlyphLibrary.polylineIDs.contains(id), learned > 0 && learned >= s)
+            if best == nil || better(c, than: best!) { best = c }
         }
-        return best.map { ($0.id, $0.spec, $0.score) }
+        return best.map { ($0.id, $0.spec, $0.score, $0.taught) }
     }
 
     /// Built-in glyph (with its variants) or a drawn custom shape, plus the strokes the

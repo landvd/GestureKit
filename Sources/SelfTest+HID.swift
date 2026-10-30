@@ -72,7 +72,7 @@ extension SelfTest {
         do {
             let m = EventTap.eventMask
             let need: [CGEventType] = [.otherMouseDown, .otherMouseUp, .otherMouseDragged,
-                                       .leftMouseDown, .rightMouseDown, .keyDown, .scrollWheel, .mouseMoved]
+                                       .leftMouseDown, .rightMouseDown, .keyDown, .scrollWheel]
             check("hid: tap mask includes otherMouse down/up/dragged",
                   need.allSatisfy { m & (1 << $0.rawValue) != 0 })
         }

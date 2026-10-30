@@ -294,8 +294,6 @@ enum BABImport {
         w("zoom", "windowzoom", "zoom")
         w("smartZoom", "smartzoom")
         w("restorePrevious", "restorethepreviousposition")
-        w("dockLeft", "adsorbentwindowatleft")
-        w("dockRight", "adsorbentwindowatright")
         // 布局
         s("maximize", "maximization")
         s("maximizeWidth", "maxofwidth")

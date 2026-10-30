@@ -66,12 +66,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         takeOverFromOtherInstances()
-        let config = Config.loadOrCreate()
+        var config = Config.loadOrCreate()
+        let reconciled = GestureHistory.reconcile(config, with: GestureHistory.shared.records)
+        if GestureHistory.learnedCount(reconciled) != GestureHistory.learnedCount(config) {
+            Log.write("learning: dropped samples whose history rating now says another gesture")
+            ConfigIO.backup(tag: "before-reconcile")
+            Config.save(reconciled)
+            config = reconciled
+        }
         L10n.setting = config.language
         self.config = config
         engine = GestureEngine(config: config)
         engine.warmUp()                  // screen layout + front app, read here on the main thread
-        engine.uiQueue = { DispatchQueue.main.async(execute: $0) }
         engine.engineQueue = { TapThread.shared.perform($0) }
         engine.strokeInterval = 1.0 / 60
         MainStallWatch.start()
@@ -146,7 +152,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Actions.shared.startTracking()
         // 动作在后台队列执行：事件 tap 回调（主线程，含每次鼠标移动）从不等待动作
         Actions.shared.executor = { Actions.workQueue.async(execute: $0) }
-        Actions.shared.dock = engine.dock
         NotificationCenter.default.addObserver(forName: Actions.openPreferencesNotification,
                                                object: nil, queue: .main) { [weak self] _ in
             self?.openPreferences()
@@ -160,7 +165,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        engine.dock.revealAll()          // 不把窗口留在屏幕外
         tap.stop()
     }
 

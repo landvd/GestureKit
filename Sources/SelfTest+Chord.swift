@@ -264,10 +264,10 @@ extension SelfTest {
             check("thread: TapThread runs blocks on its own (non-main) thread", onTapThread && !isMain)
 
             let e = makeEngine()
-            var ui: [() -> Void] = []
-            e.uiQueue = { ui.append($0) }
-            _ = e.handle(type: .mouseMoved, event: ev(.mouseMoved, a, 0))
-            check("thread: window-dock work is handed to uiQueue, not run in the tap", ui.count == 1)
+            // Window docking (the only user of plain mouse moves) is gone: moves aren't tapped at all.
+            check("tap: plain mouse moves are not intercepted",
+                  EventTap.eventMask & (1 << CGEventType.mouseMoved.rawValue) == 0
+                  && EventTap.eventMask & (1 << CGEventType.leftMouseDragged.rawValue) != 0)
 
             // Recognition runs later on a snapshot: changing the rules meanwhile doesn't change the result.
             fired = []

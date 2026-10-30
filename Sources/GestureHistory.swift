@@ -102,14 +102,35 @@ final class GestureHistory: ObservableObject {
             neg[id, default: []].append(r.points)
             neg[id] = Array(neg[id]!.suffix(maxRejected))
             c.rejectedStrokes = neg
+            // Not wanted for this gesture: no longer one of its taught samples either.
+            c.learnedStrokes?[id]?.removeAll { $0 == r.points }
         } else {
             var pos = c.learnedStrokes ?? [:]
-            pos[intended, default: []].append(r.points)
+            // One stroke belongs to one gesture: teaching it to X takes it away from any other
+            // gesture (the same stroke taught to both ↑→ and ↓→ made the pick random).
+            for k in pos.keys where k != intended { pos[k]?.removeAll { $0 == r.points } }
+            if !(pos[intended] ?? []).contains(r.points) { pos[intended, default: []].append(r.points) }
             pos[intended] = Array(pos[intended]!.suffix(maxLearned))
-            c.learnedStrokes = pos
+            c.learnedStrokes = pos.filter { !$0.value.isEmpty }
             // Taught as X: no longer a counter-example of X either.
             c.rejectedStrokes?[intended]?.removeAll { $0 == r.points }
         }
+        return c
+    }
+
+    /// Learned samples that the history now says belong elsewhere — a stroke re-rated from
+    /// 「下右」 to 「上右」 used to stay under both — are dropped: the latest rating wins.
+    static func reconcile(_ config: Config, with records: [GestureRecord]) -> Config {
+        var c = config
+        guard var pos = c.learnedStrokes else { return config }
+        for (id, strokes) in pos {
+            pos[id] = strokes.filter { s in
+                guard let r = records.first(where: { $0.points == s && $0.rating == .bad }),
+                      let wanted = r.intended else { return true }
+                return wanted == id
+            }
+        }
+        c.learnedStrokes = pos.filter { !$0.value.isEmpty }
         return c
     }
 

@@ -20,8 +20,6 @@ final class Actions {
     /// Posted for 「GestureKit 设置」; AppDelegate opens the window.
     static let openPreferencesNotification = Notification.Name("GestureKit.openPreferences")
 
-    /// Window dock owned by the engine (AppDelegate wires it); used by dockLeft/dockRight.
-    var dock: WindowDock?
 
     /// Visual feedback (HUD), installed by AppDelegate; runs in dry-run too.
     static var presenter: ((ActionSpec) -> Void)?
@@ -46,7 +44,7 @@ final class Actions {
     var executor: (@escaping () -> Void) -> Void = { $0() }
     static let workQueue = DispatchQueue(label: "gesturekit.actions", qos: .userInitiated)
 
-    /// AppKit-only state (NSScreen, WindowDock, NSApp) read from the work queue.
+    /// AppKit-only state (NSScreen, NSApp) read from the work queue.
     static func onMain<T>(_ block: () -> T) -> T {
         Thread.isMainThread ? block() : DispatchQueue.main.sync(execute: block)
     }
@@ -85,6 +83,9 @@ final class Actions {
             effects.log("skipped quit: GestureKit itself is frontmost")
             return
         }
+        // ⌘Q is sent as a real quit request: apps like WeChat ignore a quick ⌘Q and want it
+        // held ("按住 ⌘Q 退出"), so the gesture had to be done twice.
+        if Actions.quitsApp(spec) { quitFrontApp(); return }
         switch spec.type {
         case "shortcut":   sendShortcut(keyCode: spec.keyCode ?? 0, modifiers: spec.modifiers ?? 0)
         case "window":     windowOp(spec.op ?? "")
@@ -265,8 +266,6 @@ final class Actions {
         case "smartZoom":
             smartZoom()
 
-        case "dockLeft":  DispatchQueue.main.async { [dock] in dock?.dockFocused(.left) }    // WindowDock is main-thread
-        case "dockRight": DispatchQueue.main.async { [dock] in dock?.dockFocused(.right) }
 
         case "restorePrevious":
             if let win = focusedWindow() { _ = restorePrevious(win) }
@@ -794,7 +793,7 @@ final class Actions {
     }
 
     private func quitFrontApp() {
-        effects.frontmostApplication?.terminate()
+        if let app = effects.frontmostApplication { effects.terminate(app) }
     }
 
     // MARK: - Volume (system output)
@@ -836,6 +835,8 @@ struct AppHistory {
 protocol ActionEffects: AnyObject {
     // Reads that decide behaviour
     var frontmostApplication: NSRunningApplication? { get }
+    /// Ask an app to quit (the same request as 「退出」 in its Dock / menu-bar menu).
+    func terminate(_ app: NSRunningApplication)
     var frontmostBundleID: String? { get }
     var runningApplications: [NSRunningApplication] { get }
 
@@ -884,6 +885,7 @@ protocol ActionEffects: AnyObject {
 final class SystemActionEffects: ActionEffects {
 
     var frontmostApplication: NSRunningApplication? { NSWorkspace.shared.frontmostApplication }
+    func terminate(_ app: NSRunningApplication) { app.terminate() }
     var frontmostBundleID: String? { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
     var runningApplications: [NSRunningApplication] { NSWorkspace.shared.runningApplications }
 

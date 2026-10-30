@@ -960,20 +960,6 @@ struct PreferencesView: View {
                     Spacer()
                 }
             }
-            card(L("窗口吸附"), symbol: "sidebar.left", tint: .teal) {
-                HStack {
-                    Spacer()
-                    VStack(alignment: .leading, spacing: 10) {
-                        Toggle(L("拖动窗口到屏幕左/右边缘时自动吸附"), isOn: Binding(
-                            get: { model.config.windowDock ?? false },
-                            set: { v in var c = model.config; c.windowDock = v; model.save(c) }))
-                            .toggleStyle(.checkbox)
-                        Text(L("*窗口滑到屏幕外只留 1 像素，鼠标碰到那条边就滑回来；把它拖离边缘即取消吸附\n*也可以在手势规则里用「吸附到左/右边缘」动作\n⚠️ macOS 15 起拖到边缘会触发系统平铺，开启前请在「系统设置 → 桌面与程序坞」关闭「将窗口拖到屏幕边缘以平铺」"))
-                            .font(.system(size: 10)).foregroundColor(UI.secondary)
-                    }
-                    Spacer()
-                }
-            }
             card(L("提示信息"), symbol: "cursorarrow", tint: .purple) {
                 HStack {
                     Spacer()

@@ -20,7 +20,7 @@ enum ActionCatalog {
         "minimizeAll": "全部最小化", "restoreAll": "恢复全部", "fullscreen": "窗口全屏",
         "enterFullScreen": "进入全屏", "exitFullScreen": "退出全屏", "zoom": "窗口缩放",
         "smartZoom": "智能缩放", "restorePrevious": "恢复上一次位置",
-        "dockLeft": "吸附到左边缘", "dockRight": "吸附到右边缘",
+
         "moveToNextSpace": "移到下一个桌面（实验）", "moveToPrevSpace": "移到上一个桌面（实验）"
     ]
 
@@ -192,7 +192,7 @@ enum ActionCatalog {
             out.append(Choice(id: choiceID(for: spec), category: L(cat), title: L(title), spec: spec))
         }
         for op in ["minimize", "restore", "minimizeAll", "restoreAll", "fullscreen", "enterFullScreen",
-                   "exitFullScreen", "zoom", "smartZoom", "restorePrevious", "dockLeft", "dockRight",
+                   "exitFullScreen", "zoom", "smartZoom", "restorePrevious",
                    "moveToNextSpace", "moveToPrevSpace"] {
             add("窗口", "window", op: op, windowNames[op]!)
         }

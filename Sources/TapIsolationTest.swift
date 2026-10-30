@@ -2,8 +2,9 @@ import Cocoa
 
 /// `--tap-isolation-test`: proves the event tap no longer waits for the main thread.
 /// While the main thread is blocked 5 × 400 ms (what a slow settings-window layout
-/// does, exaggerated), a background thread posts 1000 mouse-moved events at the
-/// cursor's own position (it doesn't move), each stamped with its send time. The tap
+/// does, exaggerated), a background thread posts 1000 releases of a mouse button that
+/// doesn't exist (button 21: nothing reacts to it, and scroll tools such as Mos don't
+/// intercept it — scroll events measured their latency too), each stamped with its send time. The tap
 /// callback measures send → callback. With the tap on the main thread those events
 /// waited up to 400 ms; on `TapThread` they should stay at about a millisecond.
 /// Exit code 0 = pass (max < 20 ms).
@@ -34,7 +35,9 @@ enum TapIsolationTest {
                 }
             }
             for _ in 0..<1000 {
-                let e = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: at, mouseButton: .left)!
+                let e = CGEvent(mouseEventSource: nil, mouseType: .otherMouseUp, mouseCursorPosition: at,
+                                mouseButton: CGMouseButton(rawValue: 20)!)!
+                e.setIntegerValueField(.mouseEventButtonNumber, value: 20)
                 e.setIntegerValueField(.eventSourceUserData, value: tag | Int64(DispatchTime.now().uptimeNanoseconds))
                 e.post(tap: .cghidEventTap)
                 usleep(2_000)

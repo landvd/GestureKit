@@ -8,7 +8,7 @@
 
 当前状态：v0.3（精简版）。保留：鼠标手势（右键或双键起手，直线/斜线/折线/字母/自定义图形）、
 边角滚轮（音量/亮度）、115 个预设动作、设置窗口、导入导出、中英文、权限向导、稳定签名。
-**已移除，不要再加回**：触控板手势、平滑滚轮/滚轮方向、妙控鼠标、键盘触发、脚本库、iCloud 同步、学习教程/免费 Apps/问题反馈页。
+**已移除，不要再加回**：窗口吸附、触控板手势、平滑滚轮/滚轮方向、妙控鼠标、键盘触发、脚本库、iCloud 同步、学习教程/免费 Apps/问题反馈页。
 `--selftest` 全绿；设置窗口改动后跑 `--ui-click-test`（真实点击每个侧栏/页签，约 30 秒，期间别动鼠标）。
 剩余工作与「待人工验证」清单见 `docs/STATUS.md`，未做项见 `docs/PARITY.md` §3.6。
 
@@ -53,11 +53,12 @@ open -a ./GestureKit.app
 - 动作的副作用走 `Actions.effects`（`ActionEffects` 协议），测试用记录实现，不要直接调系统 API。
 - **识别**：`Recognizer.recognize`（纯函数，规则快照）决定命中哪个手势、是否命中反例、危险动作是否够把握；
   结果同时用于执行动作和写「手势记录」（`GestureHistory`，history.json，最多 200 条）。
-  个人学习数据在配置里：`learnedStrokes`（正样本）/ `rejectedStrokes`（反例）。改识别逻辑先跑 `--perf` 看识别率与混淆。
+  个人学习数据在配置里：`learnedStrokes`（正样本）/ `rejectedStrokes`（反例）。
+  改识别逻辑先跑 `--perf`（合成笔画的识别率与混淆）和 `--replay-history`（用户真实笔画按当前规则重放，评价当作标准答案）。
 - **线程模型**：事件 tap 跑在独立线程 `TapThread`（不是主线程）。`GestureEngine` 的状态**只在这条线程上读写**：
   主线程改配置/暂停走 `TapThread.shared.perform`（AppDelegate 的 `onEngine` / `setEngineConfig`），
-  主线程用 `AppDelegate.config` 副本；引擎把 UI 工作（窗口吸附、轨迹）经 `uiQueue` 交给主线程，
-  外部变化（屏幕布局、前台 App）经 `engineQueue` 交回；形状识别在 `deferWork`（后台队列）里用规则快照算，不碰引擎状态。
+  主线程用 `AppDelegate.config` 副本；轨迹经 `onChordStroke` 交给主线程，
+  外部变化（屏幕布局、前台 App）经 `engineQueue` 交回；事件 tap 不监听普通鼠标移动（只要按键、拖动、滚轮、按键盘）；形状识别在 `deferWork`（后台队列）里用规则快照算，不碰引擎状态。
   测试里这些钩子默认同步。改动后跑 `--tap-isolation-test`（主线程被卡 400ms 时光标事件仍应 < 20ms）。
 - **事件 tap 回调里不能有任何可能变慢的调用**：不调 NSScreen / NSWorkspace（用引擎里的缓存）、
   不做 IO、不跑 AppleScript / AX / 子进程；动作一律经 `Actions.executor` 在 `Actions.workQueue` 执行。

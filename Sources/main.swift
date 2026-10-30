@@ -411,88 +411,6 @@ enum SelfTest {
             }) { $0 == nil }
         }
 
-        // MARK: Window dock (P1-8)
-        do {
-            final class FakeWin { var frame: CGRect; init(_ f: CGRect) { frame = f } }
-            final class FakeDriver: DockDriver {
-                var screens: [CGRect]
-                var wins: [FakeWin] = []
-                var focused: FakeWin?
-                var activated = 0
-                var clampX: CGFloat?           // simulate an app that refuses to leave the screen
-                init(_ screens: [CGRect]) { self.screens = screens }
-                func window(at p: CGPoint) -> AnyObject? { wins.last { $0.frame.contains(p) } }
-                func focusedWindow() -> AnyObject? { focused }
-                func frame(of w: AnyObject) -> CGRect? { (w as? FakeWin)?.frame }
-                func setFrame(_ w: AnyObject, _ r: CGRect) {
-                    var r = r
-                    if let c = clampX { r.origin.x = max(r.origin.x, c) }
-                    (w as? FakeWin)?.frame = r
-                }
-                func activate(_ w: AnyObject) { activated += 1 }
-                func same(_ a: AnyObject, _ b: AnyObject) -> Bool { a === b }
-            }
-            let main = CGRect(x: 0, y: 0, width: 1000, height: 800)
-            let side = CGRect(x: 1000, y: 0, width: 1600, height: 900)
-
-            check("dock: geometry keeps 1px", WindowDock.hiddenFrame(CGRect(x: 100, y: 100, width: 400, height: 300),
-                  side: .left, screen: main).minX == -399
-                  && WindowDock.hiddenFrame(CGRect(x: 100, y: 100, width: 400, height: 300), side: .right, screen: main).minX == 999
-                  && WindowDock.shownFrame(CGRect(x: 999, y: 100, width: 400, height: 300), side: .right, screen: main).minX == 600)
-            check("dock: shared edge between screens ignored",
-                  WindowDock.edge(at: CGPoint(x: 999, y: 400), screens: [main, side]) == nil
-                  && WindowDock.edge(at: CGPoint(x: 0, y: 400), screens: [main, side])?.side == .left
-                  && WindowDock.edge(at: CGPoint(x: 2599, y: 400), screens: [main, side])?.side == .right)
-
-            let drv = FakeDriver([main])
-            let dock = WindowDock(driver: drv)
-            dock.runAsync = false
-            let w = FakeWin(CGRect(x: 300, y: 200, width: 400, height: 300))
-            drv.wins = [w]; drv.focused = w
-            dock.dockFocused(.left)
-            check("dock: action parks window at left", w.frame.minX == -399 && dock.docked.count == 1)
-            dock.mouseMoved(to: CGPoint(x: 0, y: 700))
-            check("dock: edge outside window height ignored", w.frame.minX == -399)
-            dock.mouseMoved(to: CGPoint(x: 0, y: 350))
-            check("dock: touching the edge reveals + activates", w.frame.minX == 0 && drv.activated == 1)
-            dock.mouseMoved(to: CGPoint(x: 200, y: 350))
-            check("dock: stays while cursor on window", w.frame.minX == 0)
-            dock.mouseMoved(to: CGPoint(x: 800, y: 350))
-            check("dock: leaving re-hides", w.frame.minX == -399)
-
-            // Drag the revealed window away → undocked.
-            dock.mouseMoved(to: CGPoint(x: 0, y: 350))
-            dock.mouseDown(at: CGPoint(x: 100, y: 450))
-            w.frame.origin = CGPoint(x: 300, y: 250)
-            dock.mouseUp(at: CGPoint(x: 400, y: 500))
-            check("dock: dragging away undocks", dock.docked.isEmpty && w.frame.minX == 300)
-
-            // Auto mode: drag a window onto the right edge.
-            dock.autoDock = true
-            dock.mouseDown(at: CGPoint(x: 400, y: 450))
-            w.frame.origin = CGPoint(x: 700, y: 250)
-            dock.mouseUp(at: CGPoint(x: 999, y: 450))
-            check("dock: auto-dock on drag to edge", w.frame.minX == 999 && dock.docked.first?.side == .right)
-            dock.revealAll()
-            check("dock: revealAll brings windows back", w.frame.minX == 600 && dock.docked.isEmpty)
-
-            dock.autoDock = false
-            dock.mouseDown(at: CGPoint(x: 700, y: 450))
-            w.frame.origin = CGPoint(x: 400, y: 250)
-            dock.mouseUp(at: CGPoint(x: 0, y: 450))
-            check("dock: auto-dock off by default path", dock.docked.isEmpty && w.frame.minX == 400)
-
-            let small = FakeWin(CGRect(x: 100, y: 100, width: 40, height: 40))
-            drv.focused = small
-            dock.dockFocused(.left)
-            check("dock: tiny windows ignored", dock.docked.isEmpty && small.frame.minX == 100)
-            drv.focused = w
-            drv.clampX = 0
-            dock.dockFocused(.left)
-            check("dock: app that refuses off-screen is not tracked", dock.docked.isEmpty)
-            check("dock: default config leaves auto-dock off", makeEngine().dock.autoDock == false)
-        }
-
         // MARK: Config compatibility
         do {
             let old = #"{"version":1,"enabled":true,"minDistance":24,"cornerSize":40,"rulesets":{"default":{"gestures":{"twoKey.left":{"type":"shortcut","keyCode":30,"modifiers":1048576}}}}}"#
@@ -506,11 +424,13 @@ enum SelfTest {
             mixed.rulesets["default"]?.gestures["keyboard.126.524288"] = spec("snap", op: "halfTop", label: "⌥↑")
             mixed.rulesets["default"]?.gestures["magicMouse.3f.click"] = spec("system", op: "middleClick", label: "m")
             mixed.rulesets["default"]?.gestures["trackpad.3f.swipeUp"] = spec("system", op: "missionControl", label: "t")
+            mixed.rulesets["default"]?.gestures["twoKey.key.d"] = spec("window", op: "dockLeft", label: "d")
             mixed.rulesets["com.x"] = Ruleset(gestures: ["twoKey.key.z": ActionSpec(type: "script", keyCode: nil, modifiers: nil,
                                                                                       label: nil, op: nil, delta: nil)])
             let (slim, removed) = mixed.withoutRemovedFeatures()
             check("config: migration drops trackpad / keyboard / magic mouse / script rules only",
-                  removed == 4 && slim.rulesets["default"]?.gestures["trackpad.3f.swipeUp"] == nil && slim.rulesets["default"]?.gestures["keyboard.126.524288"] == nil
+                  removed == 5 && slim.rulesets["default"]?.gestures["trackpad.3f.swipeUp"] == nil
+                  && slim.rulesets["default"]?.gestures["twoKey.key.d"] == nil && slim.rulesets["default"]?.gestures["keyboard.126.524288"] == nil
                   && slim.rulesets["default"]?.gestures["magicMouse.3f.click"] == nil
                   && slim.rulesets["com.x"]?.gestures.isEmpty == true
                   && slim.rulesets["default"]?.gestures.count == Config.defaultConfig.rulesets["default"]?.gestures.count)
@@ -690,6 +610,11 @@ if let i = CommandLine.arguments.firstIndex(of: "--preset-check"), i + 1 < Comma
         exit(1)
     }
     exit(0)
+}
+
+if CommandLine.arguments.contains("--replay-history") {
+    // Read-only: re-run the recorded strokes through today's recognizer.
+    exit(HistoryReplay.run())
 }
 
 if CommandLine.arguments.contains("--ddc-test") {

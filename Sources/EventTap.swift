@@ -58,7 +58,6 @@ final class EventTap {
             .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
             .otherMouseDown, .otherMouseUp,
             .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
-            .mouseMoved,        // 窗口吸附：碰边滑出
             .keyDown, .scrollWheel,
         ]
         return types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
