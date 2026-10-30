@@ -251,12 +251,27 @@ final class GestureEngine {
         if !downButtons.isEmpty { draining = true }
     }
 
-    /// Selftest swaps this to record instead of posting.
-    static var postRightClick: (CGPoint) -> Void = { p in
-        for type in [CGEventType.rightMouseDown, .rightMouseUp] {
-            guard let e = CGEvent(mouseEventSource: nil, mouseType: type,
-                                  mouseCursorPosition: p, mouseButton: .right) else { continue }
+    /// The replayed right click, made to look like a real one: click count 1 and pressure
+    /// set (a bare CGEvent has click count 0 — Safari didn't mind, WeChat ignored the click
+    /// and showed no menu), tagged so our own tap lets it through.
+    static func rightClickEvents(at p: CGPoint) -> [CGEvent] {
+        [CGEventType.rightMouseDown, .rightMouseUp].compactMap { type in
+            guard let e = CGEvent(mouseEventSource: CGEventSource(stateID: .hidSystemState), mouseType: type,
+                                  mouseCursorPosition: p, mouseButton: .right) else { return nil }
+            e.setIntegerValueField(.mouseEventClickState, value: 1)
+            e.setDoubleValueField(.mouseEventPressure, value: type == .rightMouseDown ? 1 : 0)
             e.setIntegerValueField(.eventSourceUserData, value: Actions.syntheticMarker)
+            return e
+        }
+    }
+
+    /// Runs on the recognition queue (never the tap thread), so the short pause between
+    /// press and release — like a real click; some apps drop a menu whose release arrives
+    /// in the same instant — costs nothing. Selftest swaps this to record instead of posting.
+    static var postRightClick: (CGPoint) -> Void = { p in
+        let events = rightClickEvents(at: p)
+        for (i, e) in events.enumerated() {
+            if i > 0 { usleep(40_000) }
             e.post(tap: .cghidEventTap)
         }
     }

@@ -376,6 +376,18 @@ extension SelfTest {
             check("apps: cancelling the delete changes nothing",
                   model.config.rulesets["com.citrolabs.ego.lite"] != nil && model.selectedApp == "com.citrolabs.ego.lite")
         }
+
+        // 16) 补发的右键要像真实点击（微信只认「单击次数 = 1」的右键）
+        do {
+            let ev = GestureEngine.rightClickEvents(at: CGPoint(x: 300, y: 200))
+            check("replay: right down + up at the press point",
+                  ev.map(\.type) == [.rightMouseDown, .rightMouseUp] && ev.allSatisfy { $0.location == CGPoint(x: 300, y: 200) })
+            check("replay: click count 1 on both (WeChat ignores count 0)",
+                  ev.allSatisfy { $0.getIntegerValueField(.mouseEventClickState) == 1 })
+            check("replay: pressed with pressure, released without",
+                  ev.first?.getDoubleValueField(.mouseEventPressure) == 1 && ev.last?.getDoubleValueField(.mouseEventPressure) == 0)
+            check("replay: tagged as ours so the tap passes it", ev.allSatisfy(Actions.isSynthetic))
+        }
         return out
     }
 }
