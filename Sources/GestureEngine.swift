@@ -154,7 +154,7 @@ final class GestureEngine {
         }
         downButtons.insert(button)
         if downButtons.count == 1 {
-            if button == 1, config.gestureButton == "right" {
+            if button == 1, config.gestureButton == "right", !GestureEngine.isOwnReplay(at: point) {
                 // 右键手势：按下先吞，松开时再决定是手势还是普通右键
                 beginChord(at: point)
                 rightSolo = true
@@ -255,8 +255,11 @@ final class GestureEngine {
     /// set (a bare CGEvent has click count 0 — Safari didn't mind, WeChat ignored the click
     /// and showed no menu), tagged so our own tap lets it through.
     static func rightClickEvents(at p: CGPoint) -> [CGEvent] {
+        // No event source: a HID-state source wipes eventSourceUserData when posted, the
+        // unmarked replay was then swallowed and replayed again — an endless loop that froze
+        // WeChat. (`isOwnReplay` is the safety net should a marker ever get lost again.)
         [CGEventType.rightMouseDown, .rightMouseUp].compactMap { type in
-            guard let e = CGEvent(mouseEventSource: CGEventSource(stateID: .hidSystemState), mouseType: type,
+            guard let e = CGEvent(mouseEventSource: nil, mouseType: type,
                                   mouseCursorPosition: p, mouseButton: .right) else { return nil }
             e.setIntegerValueField(.mouseEventClickState, value: 1)
             e.setDoubleValueField(.mouseEventPressure, value: type == .rightMouseDown ? 1 : 0)
@@ -269,6 +272,7 @@ final class GestureEngine {
     /// press and release — like a real click; some apps drop a menu whose release arrives
     /// in the same instant — costs nothing. Selftest swaps this to record instead of posting.
     static var postRightClick: (CGPoint) -> Void = { p in
+        noteReplay(at: p)
         let events = rightClickEvents(at: p)
         for (i, e) in events.enumerated() {
             if i > 0 { usleep(40_000) }
@@ -276,6 +280,21 @@ final class GestureEngine {
         }
     }
     private static func replayRightClick(at p: CGPoint) { postRightClick(p) }
+
+    /// Safety net against a replay loop: a right press arriving right after our own replay
+    /// at the same spot is let through even if its marker got lost on the way.
+    private static let replayLock = NSLock()
+    private static var lastReplay: (at: TimeInterval, point: CGPoint)?
+
+    static func noteReplay(at p: CGPoint) {
+        replayLock.lock(); lastReplay = (ProcessInfo.processInfo.systemUptime, p); replayLock.unlock()
+    }
+
+    static func isOwnReplay(at p: CGPoint, now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
+        replayLock.lock(); defer { replayLock.unlock() }
+        guard let r = lastReplay, now - r.at < 0.3, hypot(p.x - r.point.x, p.y - r.point.y) < 4 else { return false }
+        return true
+    }
 
     private func cocoaPoint(_ p: CGPoint) -> CGPoint {
         CGPoint(x: p.x, y: screens().mainHeight - p.y)

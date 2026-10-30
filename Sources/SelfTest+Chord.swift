@@ -22,6 +22,7 @@ extension SelfTest {
             return e
         }
         let a = CGPoint(x: 600, y: 500), b = CGPoint(x: 760, y: 500)
+        func ev0(_ type: CGEventType, _ p: CGPoint, _ button: Int64) -> CGEvent { ev(type, p, button) }
         let saved = Actions.observer
         defer { Actions.observer = saved }
         var fired: [ActionSpec] = []
@@ -387,7 +388,26 @@ extension SelfTest {
             check("replay: pressed with pressure, released without",
                   ev.first?.getDoubleValueField(.mouseEventPressure) == 1 && ev.last?.getDoubleValueField(.mouseEventPressure) == 0)
             check("replay: tagged as ours so the tap passes it", ev.allSatisfy(Actions.isSynthetic))
+            // 补发后 0.3 秒内、同一位置的右键按下：即使标记丢了也放行，不再吞掉重发（防死循环）
+            GestureEngine.noteReplay(at: CGPoint(x: 300, y: 200))
+            let t = ProcessInfo.processInfo.systemUptime
+            check("replay: a right press right after our replay is never swallowed again",
+                  GestureEngine.isOwnReplay(at: CGPoint(x: 301, y: 200), now: t + 0.05)
+                  && !GestureEngine.isOwnReplay(at: CGPoint(x: 301, y: 200), now: t + 0.5)
+                  && !GestureEngine.isOwnReplay(at: CGPoint(x: 340, y: 200), now: t + 0.05))
+            var rc = Config.defaultConfig; rc.gestureButton = "right"
+            let re = makeEngine(); re.config = rc
+            GestureEngine.noteReplay(at: a)
+            let passed = re.handle(type: .rightMouseDown, event: ev0(.rightMouseDown, a, 1)) != nil
+            _ = re.handle(type: .rightMouseUp, event: ev0(.rightMouseUp, a, 1))
+            check("replay: engine lets an unmarked echo of its replay through", passed)
+            GestureEngine.noteReplay(at: CGPoint(x: -999, y: -999))       // reset for later tests
         }
+
+        // 17) 与 BetterAndBetter 冲突时提醒
+        check("conflict: BetterAndBetter is detected among running apps",
+              AppDelegate.conflicts(in: ["com.apple.Safari", "cn.better365.BetterAndBetter", nil]) == ["cn.better365.BetterAndBetter"]
+              && AppDelegate.conflicts(in: ["com.apple.Safari", "com.better365.BetterAndBetterHelper"]).isEmpty)
         return out
     }
 }

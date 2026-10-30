@@ -26,6 +26,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var promptedForAccessibility = false
     private var wizardAutoShown = false
 
+    // MARK: - Other gesture tools
+
+    /// Gesture tools that also take over the right button. Running both re-posts each other's
+    /// clicks (BetterAndBetter strips our replay marker → endless right-click loop in WeChat).
+    static let conflictingBundleIDs = ["cn.better365.BetterAndBetter"]
+
+    static func conflicts(in running: [String?]) -> [String] {
+        conflictingBundleIDs.filter { running.contains($0) }
+    }
+
+    private var conflictAlertShown = false
+
+    private func watchForConflictingApps() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.checkConflicts() }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] n in
+            let id = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+            if AppDelegate.conflictingBundleIDs.contains(id ?? "") { self?.conflictAlertShown = false; self?.checkConflicts() }
+        }
+    }
+
+    private func checkConflicts() {
+        let apps = NSWorkspace.shared.runningApplications
+        guard !conflictAlertShown, !AppDelegate.conflicts(in: apps.map(\.bundleIdentifier)).isEmpty else { return }
+        conflictAlertShown = true
+        Log.write("conflict: BetterAndBetter is running")
+        let a = NSAlert()
+        a.messageText = L("BetterAndBetter 正在运行")
+        a.informativeText = L("它和 GestureKit 都会接管右键和鼠标手势，同时运行会互相干扰（例如微信里右键没反应、变卡）。建议退出 BetterAndBetter。")
+        a.addButton(withTitle: L("退出 BetterAndBetter"))
+        a.addButton(withTitle: L("暂时不管"))
+        NSApp.activate(ignoringOtherApps: true)
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        for app in apps where AppDelegate.conflictingBundleIDs.contains(app.bundleIdentifier ?? "") { app.terminate() }
+        Log.write("conflict: asked BetterAndBetter to quit")
+    }
+
     /// Cursor hint for a gesture that ran nothing (nil when it ran).
     static func hint(for r: GestureRecord) -> String? {
         switch r.via {
@@ -149,6 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         startEngine()
+        watchForConflictingApps()
         Actions.shared.startTracking()
         // 动作在后台队列执行：事件 tap 回调（主线程，含每次鼠标移动）从不等待动作
         Actions.shared.executor = { Actions.workQueue.async(execute: $0) }
