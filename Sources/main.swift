@@ -559,56 +559,9 @@ enum SelfTest {
 
 // MARK: - Entry point
 
-if CommandLine.arguments.contains("--shape-debug") {
-    let drawnA = [CGPoint(x: 600, y: 500), CGPoint(x: 640, y: 380), CGPoint(x: 680, y: 500)]
-    let drawnV = [CGPoint(x: 600, y: 380), CGPoint(x: 640, y: 500), CGPoint(x: 680, y: 380)]
-    let drawnL = [CGPoint(x: 600, y: 400), CGPoint(x: 480, y: 400)]
-    let sloppyA = [CGPoint(x: 600, y: 505), CGPoint(x: 625, y: 440), CGPoint(x: 655, y: 385),
-                   CGPoint(x: 690, y: 448), CGPoint(x: 715, y: 498)]
-    let narrowA = [CGPoint(x: 600, y: 500), CGPoint(x: 640, y: 380), CGPoint(x: 680, y: 500)]
-    for (name, d) in [("A", drawnA), ("V", drawnV), ("←", drawnL),
-                      ("sloppyA", sloppyA), ("narrowA", narrowA)] {
-        print("stroke \(name):")
-        for g in ["A", "V", "T", "F", "<", ">", "←", "→", "↑", "↓"] {
-            let t = GlyphLibrary.template(for: g)!
-            print("   \(g) = \(String(format: "%.1f", ShapeMatcher.score(template: t, drawn: d)))")
-        }
-    }
-    exit(0)
-}
-
 if CommandLine.arguments.contains("--ddc-probe") {
     // Read-only: list external displays, DDC services and how they map (no I²C traffic).
     DisplayBrightness.DDC.probeReport().forEach { print($0) }
-    exit(0)
-}
-
-if let i = CommandLine.arguments.firstIndex(of: "--preset-check"), i + 1 < CommandLine.arguments.count {
-    // Read-only: what a .BABPreset would import, and how it differs from the current rules.
-    let url = URL(fileURLWithPath: CommandLine.arguments[i + 1])
-    do {
-        let r = try BABImport.parse(try Data(contentsOf: url))
-        print(BABImport.summary(r, maxLines: 50))
-        let cur = Config.loadOrCreate()
-        func text(_ s: ActionSpec?) -> String {
-            guard let s else { return "（无）" }
-            return (ActionCatalog.hudText(for: s) ?? s.type) + (s.enabled == false ? "［停用］" : "")
-        }
-        var same = 0, diff: [String] = []
-        for app in r.rulesets.keys.sorted() {
-            for id in (r.rulesets[app]?.gestures.keys.sorted() ?? []) {
-                let mine = cur.rulesets[app]?.gestures[id], theirs = r.rulesets[app]?.gestures[id]
-                if text(mine) == text(theirs) { same += 1 } else {
-                    diff.append("• [\(app)] \(id)：预设=\(text(theirs))  当前=\(text(mine))")
-                }
-            }
-        }
-        print("与当前规则相同 \(same) 条，不同或缺少 \(diff.count) 条")
-        diff.forEach { print($0) }
-    } catch {
-        print("读取失败：\(error.localizedDescription)")
-        exit(1)
-    }
     exit(0)
 }
 

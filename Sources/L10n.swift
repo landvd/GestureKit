@@ -1,6 +1,6 @@
 import Foundation
 
-/// 多语言（P2-15，docs/modules/16-i18n.md）。
+/// 多语言：中文原文作 key，英文表在下面和 `L10n+<区域>.swift`。
 ///
 /// 表驱动、单文件：中文原文就是 key。`L("窗口最小化")` 在英文下返回
 /// "Minimize Window"，中文下原样返回；英文表里缺这条时回退中文，并 `Log.write` 一次。
@@ -98,7 +98,7 @@ enum L10n {
 
     /// Core table + per-area tables (`L10n+<Area>.swift`), so areas can be
     /// translated independently. Later tables win on duplicate keys.
-    static let en: [String: String] = [enCore, enImport, enActions]
+    static let en: [String: String] = [enCore, enActions]
         .reduce(into: [:]) { acc, t in acc.merge(t) { _, new in new } }
 
     // BEGIN-EN（一行一条；scripts/check-l10n.sh 依赖这个格式）
@@ -266,6 +266,10 @@ enum L10n {
         "已导出": "Exported",
         "导出失败": "Export Failed",
         "导入失败": "Import Failed",
+        "无法读取文件。": "Could not read the file.",
+        "音量每次调节": "Volume step",
+        "*数值越大调得越快，所有音量规则一起生效": "*Larger is faster; applies to every volume rule",
+        "导入前会自动备份当前规则；保存设置时每天自动备份一次，保留最近 5 份。": "Current rules are backed up before importing; settings are also backed up once a day when saved (last 5 kept).",
         "导入 %d 条规则": "Import %d Rules",
         "合并：保留现有规则，同一手势以导入文件为准。\n覆盖：用导入文件替换全部设置和规则。\n导入前会自动备份当前 rules.json。": "Merge: keep existing rules; the file wins for the same gesture.\nReplace: replace all settings and rules with the file.\nThe current rules.json is backed up first.",
         "重置全部设置和规则？": "Reset all settings and rules?",
@@ -278,49 +282,7 @@ enum L10n {
         "导入规则": "Import Rules",
         "导出规则": "Export Rules",
         "重置全部设置和规则": "Reset All Settings and Rules",
-        // 按键识别（HIDMouse / Preferences）
-        "%d 键": "%d buttons",
-        "罗技设备：若侧键无反应，可能已被 Logi Options+ 接管，可在其中把按键恢复为「默认/系统」。": "Logitech device: if side buttons don't respond, Logi Options+ may have taken them over. Set them back to \"Default/System\" there.",
-        "雷蛇设备：若侧键无反应，可能已被 Razer Synapse 接管。": "Razer device: if side buttons don't respond, Razer Synapse may have taken them over.",
-        "蓝牙": "Bluetooth",
-        "蓝牙（低功耗）": "Bluetooth LE",
-        "内建": "Built-in",
-        "虚拟设备": "Virtual",
-        "未知设备": "Unknown Device",
-        "已授权": "Granted",
-        "未授权": "Denied",
-        "未询问": "Not Asked",
-        "左键": "Left",
         "右键": "Right",
-        "中键": "Middle",
-        "第 %d 键": "Button %d",
-        "%@按下": "%@ Down",
-        "%@松开": "%@ Up",
-        "第 %d 个：按键号 %d → %@": "#%d: button number %d → %@",
-        "共识别 %d 个键（含左键）": "%d buttons detected (including left)",
-        "；设备声明 %d 个键，其余键可能被厂商驱动占用或只经 HID 厂商页上报": "; the device reports %d. The rest may be taken by a vendor driver or only sent via a vendor HID page",
-        "按键识别": "Buttons",
-        "手势设置": "Gestures",
-        "鼠标硬件信息": "Mouse Hardware",
-        "设备：": "Device:",
-        "未检测到鼠标类设备": "No pointing device found",
-        "产品型号：": "Product:",
-        "制造商：": "Manufacturer:",
-        "连接方式：": "Connection:",
-        "产品 ID：": "Product ID:",
-        "厂商 ID：": "Vendor ID:",
-        "按键数：": "Buttons:",
-        "鼠标按键信息": "Mouse Buttons",
-        "请按下任意鼠标键": "Press any mouse button",
-        "*单击鼠标按键，按键状态将在此处显示。若未正确识别，请点按下方手动适配按钮": "*Click a mouse button and its state appears here. If it isn't recognized, use Manual Mapping below",
-        "未开启「辅助功能」权限：只能识别在本窗口内的点击": "No Accessibility permission: only clicks inside this window are detected",
-        "鼠标按键手动适配": "Manual Button Mapping",
-        "请依次按下鼠标上除左键以外的每个按键（右键、滚轮键、侧键…），每个键按一次，然后点「完成」。": "Press every button except the left one (right, wheel, side buttons…) once each, then click \"Done\".",
-        "等待按键…": "Waiting for a button…",
-        "完成": "Done",
-        "手动适配": "Manual Mapping",
-        "重新适配": "Map Again",
-        "*第 6–8 键若无反应，可能被厂商驱动占用，或该键只经 HID 厂商页上报（需「输入监控」权限，当前未启用）": "*If buttons 6–8 don't respond, a vendor driver may own them, or they're only sent via a vendor HID page (needs Input Monitoring, not used)",
         // 设置窗口（Preferences）
         "触控板": "Trackpad",
         "妙控鼠标": "Magic Mouse",

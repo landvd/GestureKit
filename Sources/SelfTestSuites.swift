@@ -12,8 +12,8 @@ struct SelfTestCheck {
 extension SelfTest {
     /// Run in this order after the built-in checks in `SelfTest.run()`.
     static var suites: [(String, () -> [SelfTestCheck])] {
-        [("actions", actionChecks), ("hid", hidChecks), ("permissions", permissionChecks),
+        [("actions", actionChecks), ("buttons", buttonChecks), ("permissions", permissionChecks),
          ("i18n", i18nChecks),
-         ("import", importChecks), ("actionsExt", actionExtChecks), ("ddc", ddcChecks), ("chord", chordChecks), ("history", historyChecks), ("perf", perfChecks)]
+         ("backup", backupChecks), ("actionsExt", actionExtChecks), ("ddc", ddcChecks), ("chord", chordChecks), ("history", historyChecks), ("perf", perfChecks)]
     }
 }

@@ -72,12 +72,6 @@ extension SelfTest {
         let badPages = badEnglish(PrefPage.allCases.map(\.title))
         check("i18n: en page titles", badPages.isEmpty && PrefPage.hotCorners.zhTitle == "边角触发",
               badPages.joined(separator: ", "))
-        var adapt = ButtonAdaptation(); adapt.record(1, down: true); adapt.record(3, down: true)
-        let hidTexts = (0..<8).map { MouseButtons.name(Int64($0)) }
-            + [MouseButtons.stateText(3, down: true), adapt.summary(expected: 5)] + adapt.lines
-            + ["usb", "bluetooth", "ble", "spi", "virtual", ""].map { HIDMouse.transportText($0, builtIn: true) }
-        check("i18n: en hid texts", badEnglish(hidTexts).isEmpty && MouseButtons.stateText(3, down: true) == "Button 4 Down",
-              badEnglish(hidTexts).joined(separator: ", "))
         let badValues = L10n.en.filter { L10n.containsCJK($0.value) || $0.value.isEmpty }.map(\.key)
         check("i18n: en table has no Chinese", badValues.isEmpty, badValues.prefix(5).joined(separator: ", "))
         check("i18n: en format",
@@ -104,9 +98,6 @@ extension SelfTest {
         check("i18n: zh page title", PrefPage.hotCorners.title == "边角触发")
         check("i18n: zh format", L("导入 %d 条规则", 3) == "导入 3 条规则"
                 && L("%@（%@）", "a", "b") == "a（b）" && L10n.join("三指", "上滑") == "三指上滑")
-        check("i18n: zh hid texts", MouseButtons.stateText(3, down: true) == "第 4 键按下"
-                && adapt.summary(expected: 5).hasPrefix("共识别 3 个键"))
-
         // MARK: 设置值 / 回退 / 跟随系统
         L10n.override = nil
         check("i18n: normalized", L10n.normalized(nil) == "system" && L10n.normalized("system") == "system"

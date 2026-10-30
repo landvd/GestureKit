@@ -1,8 +1,8 @@
 import SwiftUI
 import AppKit
 
-/// What the add/edit rule sheet is working on (docs/UI_UX_SPEC.md §4.1:
-/// 「+ 新增（先选 App 再选动作，弹出面板）」, double-click a row to edit).
+/// What the add/edit rule sheet is working on (「+」 adds: pick the gesture, then the
+/// action, in a sheet; double-click a row to edit).
 struct RuleDraft: Identifiable {
     static let shortcutChoice = "shortcut"
     static let openAppChoice = "openApp"

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Import / export / reset of rules.json (docs/modules/13-storage-sync.md).
+/// Import / export / reset of rules.json.
 /// Every destructive step first copies the current file to a timestamped backup.
 enum ConfigIO {
 

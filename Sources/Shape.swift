@@ -1,7 +1,6 @@
 import Cocoa
 
-/// Shape-gesture recognition, reconstructed from the original app's behaviour
-/// (see docs/ALGORITHMS_RECOVERED.md):
+/// Shape-gesture recognition:
 ///
 ///   • strokes shorter than 30 pt score 0
 ///   • distance = arc-length weighted DTW between two strokes
@@ -223,7 +222,7 @@ enum GlyphLibrary {
     /// `twoKey.custom.<name>`: template comes from `Config.customGlyphs[name]`.
     static let customPrefix = "twoKey.custom."
 
-    /// Gesture id → glyph character (see docs/ORIGINAL_FEATURES.md §3.1).
+    /// Gesture id → glyph character.
     static func glyph(forGestureID id: String) -> String? {
         if id.hasPrefix("twoKey.key.") {
             let c = String(id.dropFirst("twoKey.key.".count))

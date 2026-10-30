@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Design tokens (from docs/UI_UX_SPEC.md)
+// MARK: - Design tokens
 
 enum UI {
     static let windowBG   = Color(red: 0.914, green: 0.914, blue: 0.918)   // #E9E9EA
@@ -47,7 +47,7 @@ enum PrefPage: Int, CaseIterable, Identifiable {
         }
     }
 
-    /// Device pages carry the 按键识别 / 手势设置 sub-tabs.
+    /// Device pages: rule list with the per-app picker.
     var isDevicePage: Bool {
         switch self {
         case .normalMouse: return true
@@ -60,93 +60,7 @@ enum PrefPage: Int, CaseIterable, Identifiable {
 
 final class PrefModel: ObservableObject {
     @Published var page: PrefPage = .normalMouse
-    @Published var subTab: Int = 1          // 0 按键识别 / 1 手势设置
     @Published var config: Config
-    // MARK: 按键识别（P2-12，见 HIDMouse.swift）
-    @Published var lastButtonState: String = ""      // 空 = 显示「请按下任意鼠标键」
-    /// 已连接的鼠标类设备（只枚举，不打开设备 → 不需要输入监控权限）
-    @Published var mice: [HIDMouseInfo] = []
-    @Published var selectedMouseID: String?
-    /// 当前按住的键（CGEvent 按键号）
-    @Published var heldButtons: Set<Int64> = []
-    /// 非 nil = 正在手动适配
-    @Published var adaptation: ButtonAdaptation?
-    /// 上一次手动适配的结果（只展示，不写配置）
-    @Published var adaptResult: ButtonAdaptation?
-    var selectedMouse: HIDMouseInfo? {
-        mice.first { $0.id == selectedMouseID } ?? mice.first
-    }
-    var device: DeviceInfo.Mouse? { selectedMouse.map(DeviceInfo.mouse(from:)) }
-    private var keyIdentifyTokens: [NSObjectProtocol] = []
-    private var localButtonMonitor: Any?
-
-    /// 「按键识别」页出现时调用：开始插拔监听 + 接收事件 tap 的按键广播。
-    func startKeyIdentify() {
-        guard keyIdentifyTokens.isEmpty else { return }
-        let nc = NotificationCenter.default
-        keyIdentifyTokens.append(nc.addObserver(forName: HIDMouseMonitor.changed, object: nil,
-                                                queue: .main) { [weak self] _ in self?.reloadMice() })
-        keyIdentifyTokens.append(nc.addObserver(forName: MouseButtonFeed.notification, object: nil,
-                                                queue: .main) { [weak self] note in
-            guard let b = note.userInfo?["button"] as? Int64,
-                  let down = note.userInfo?["down"] as? Bool else { return }
-            self?.handleButton(b, down: down)
-        })
-        HIDMouseMonitor.shared.start()
-        reloadMice()
-        MouseButtonFeed.isActive = true
-        // 没有事件 tap（未授权辅助功能）时，退回到只看本窗口内的点击
-        if !MouseButtonFeed.tapRunning {
-            localButtonMonitor = NSEvent.addLocalMonitorForEvents(
-                matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
-                           .otherMouseDown, .otherMouseUp]) { [weak self] e in
-                let down = [.leftMouseDown, .rightMouseDown, .otherMouseDown].contains(e.type)
-                self?.handleButton(Int64(e.buttonNumber), down: down)
-                return e
-            }
-        }
-    }
-
-    func stopKeyIdentify() {
-        MouseButtonFeed.isActive = false
-        keyIdentifyTokens.forEach(NotificationCenter.default.removeObserver)
-        keyIdentifyTokens = []
-        if let m = localButtonMonitor { NSEvent.removeMonitor(m) }
-        localButtonMonitor = nil
-        HIDMouseMonitor.shared.stop()
-        heldButtons = []
-        adaptation = nil
-    }
-
-    func reloadMice() {
-        let list = HIDMouseMonitor.shared.isRunning ? HIDMouseMonitor.shared.devices
-                                                     : HIDMouse.enumerate()
-        mice = list
-        if selectedMouseID == nil || !list.contains(where: { $0.id == selectedMouseID }) {
-            let kind: HIDMouseInfo.Kind? = page == .normalMouse ? .mouse : nil
-            selectedMouseID = HIDMouse.preferred(list, kind: kind)?.id
-        }
-    }
-
-    func handleButton(_ button: Int64, down: Bool) {
-        lastButtonState = MouseButtons.stateText(button, down: down)
-        if down { heldButtons.insert(button) } else { heldButtons.remove(button) }
-        adaptation?.record(button, down: down)
-    }
-
-    func beginAdaptation() {
-        adaptResult = nil
-        adaptation = ButtonAdaptation()
-    }
-
-    func finishAdaptation() {
-        if let a = adaptation {
-            adaptResult = a
-            Log.write("button adapt: \(a.recorded.map(String.init).joined(separator: ","))"
-                      + " device=\(selectedMouse?.product ?? "?")")
-        }
-        adaptation = nil
-    }
     /// 设备页里选择的应用程序（"default" = 所有应用程序）
     @Published var selectedApp: String = "default"
     /// 手势记录 (selftest gives the model an in-memory one).
@@ -212,16 +126,11 @@ final class PrefModel: ObservableObject {
 
     func importRules() {
         let panel = NSOpenPanel()
-        panel.allowedFileTypes = ["json", "BABPreset", "babpreset"]
+        panel.allowedFileTypes = ["json"]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard let data = try? Data(contentsOf: url) else {
             alert(L("导入失败"), L("无法读取文件。"))
-            return
-        }
-        // 原版 BetterAndBetter 预设（.BABPreset，NSKeyedArchiver 归档）走单独的流程
-        if BABImport.looksLikePreset(url: url, data: data) {
-            importPreset(data)
             return
         }
         let imported: Config
@@ -245,54 +154,6 @@ final class PrefModel: ObservableObject {
                               mode: r == .alertFirstButtonReturn ? .merge : .replace))
         selectedApp = "default"
         selectedRule = nil
-    }
-
-    /// 导入原版 `.BABPreset`：解析 → 摘要（可导入 / 跳过及原因）→ 合并 / 覆盖 / 取消。
-    /// 覆盖只替换规则，GestureKit 自己的设置保持不变（预设里没有这些设置）。
-    func importPreset(_ data: Data) {
-        let result: BABImport.Result
-        do {
-            result = try BABImport.parse(data)
-        } catch {
-            alert(L("导入失败"), error.localizedDescription)
-            return
-        }
-        Log.write("BABPreset parsed: \(result.importedCount) importable, \(result.skipped.count) skipped")
-        let a = NSAlert()
-        a.informativeText = BABImport.summary(result)
-        if !result.skipped.isEmpty { a.accessoryView = Self.skippedListView(BABImport.skippedReport(result)) }
-        guard result.importedCount > 0 else {
-            a.messageText = L("预设里没有可导入的规则")
-            a.addButton(withTitle: L("好"))
-            a.runModal()
-            return
-        }
-        a.messageText = L("导入 BetterAndBetter 预设")
-        a.informativeText += "\n\n" + L("合并：保留现有规则，同一手势以预设为准。\n覆盖：用预设替换全部规则（设置保持不变）。\n导入前会自动备份当前 rules.json。")
-        a.addButton(withTitle: L("合并"))
-        a.addButton(withTitle: L("覆盖"))
-        a.addButton(withTitle: L("取消"))
-        let r = a.runModal()
-        guard r != .alertThirdButtonReturn else { return }
-        ConfigIO.backup()
-        save(BABImport.apply(result, to: config, mode: r == .alertFirstButtonReturn ? .merge : .replace))
-        selectedApp = "default"
-        selectedRule = nil
-    }
-
-    /// 跳过列表：可滚动、可复制的只读文本框（放进 NSAlert.accessoryView）。
-    private static func skippedListView(_ text: String) -> NSView {
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 420, height: 140))
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .bezelBorder
-        let tv = NSTextView(frame: scroll.bounds)
-        tv.isEditable = false
-        tv.isSelectable = true
-        tv.font = .systemFont(ofSize: 11)
-        tv.string = text
-        tv.autoresizingMask = [.width]
-        scroll.documentView = tv
-        return scroll
     }
 
     func resetAll() {
@@ -629,15 +490,13 @@ struct PreferencesView: View {
     @ViewBuilder private var content: some View {
         if model.page.isDevicePage || model.page == .hotCorners {
             VStack(spacing: 0) {
-                if model.page.isDevicePage { segmentedHeader }
+                if model.page.isDevicePage { appPickerHeader }
                 ScrollView {
                     VStack(spacing: 24) {
                         if model.page == .hotCorners {
                             hotCornerCard
-                        } else if model.subTab == 1 {
-                            gestureCard
                         } else {
-                            keyIdentifyCards
+                            gestureCard
                         }
                     }
                     .padding(.horizontal, 40)
@@ -662,11 +521,9 @@ struct PreferencesView: View {
         }
     }
 
-    private var segmentedHeader: some View {
+    private var appPickerHeader: some View {
         HStack {
             Spacer()
-            // Always laid out (hidden off the 手势设置 tab) so the tabs never shift sideways
-            // under the cursor when the selection changes.
             Picker("", selection: model.appSelection) {
                 ForEach(model.appKeys, id: \.self) { k in
                     Text(model.appTitle(k)).tag(k)
@@ -679,32 +536,6 @@ struct PreferencesView: View {
             }
             .labelsHidden()
             .frame(width: 150)
-            .padding(.trailing, 12)
-            .opacity(model.subTab == 1 ? 1 : 0)
-            .disabled(model.subTab != 1)
-            .accessibilityHidden(model.subTab != 1)
-            HStack(spacing: 0) {
-                ForEach(Array([L("按键识别"), L("手势设置")].enumerated()), id: \.offset) { i, t in
-                    Button { model.subTab = i } label: {
-                        Text(t)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(model.subTab == i ? .white : .primary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 26)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(model.subTab == i ? UI.accent : Color.clear)
-                            )
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text(t))
-                    .clickTarget(t)
-                }
-            }
-            .padding(3)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(Color.white.opacity(0.75)))
             Spacer()
         }
         .padding(.top, 16)
@@ -731,104 +562,6 @@ struct PreferencesView: View {
         .padding(.horizontal, 32)
         .padding(.vertical, 24)
         .background(RoundedRectangle(cornerRadius: UI.cardRadius, style: .continuous).fill(UI.cardBG))
-    }
-
-    private var keyIdentifyCards: some View {
-        VStack(spacing: 24) {
-            card(L("鼠标硬件信息"), symbol: "computermouse", tint: UI.accent) {
-                if model.mice.count > 1 {
-                    Picker(L("设备："), selection: Binding(
-                        get: { model.selectedMouse?.id ?? "" },
-                        set: { model.selectedMouseID = $0 })) {
-                        ForEach(model.mice) { d in Text(d.displayName).tag(d.id) }
-                    }
-                    .font(.system(size: 12))
-                    .frame(maxWidth: 420)
-                } else if model.mice.isEmpty {
-                    Text(L("未检测到鼠标类设备")).font(.system(size: 12)).foregroundColor(UI.secondary)
-                }
-                HStack(spacing: 0) {
-                    labelValue(L("产品型号："), model.device?.product ?? "—")
-                    labelValue(L("制造商："), model.device?.manufacturer ?? "—")
-                }
-                HStack(spacing: 0) {
-                    labelValue(L("连接方式："), model.device?.transport ?? "—")
-                    labelValue(L("产品 ID："), model.device?.productID ?? "—")
-                }
-                HStack(spacing: 0) {
-                    labelValue(L("厂商 ID："), model.device?.vendorID ?? "—")
-                    labelValue(L("按键数："), model.device?.buttons ?? "—")
-                }
-                if let hint = model.selectedMouse?.driverHint {
-                    Text(hint).font(.system(size: 11)).foregroundColor(UI.secondary)
-                }
-            }
-            card(L("鼠标按键信息"), symbol: "computermouse.fill", tint: .orange) {
-                HStack {
-                    Spacer()
-                    Text(model.lastButtonState.isEmpty ? L("请按下任意鼠标键") : model.lastButtonState)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(UI.danger)
-                    Spacer()
-                }
-                .padding(.top, 18)
-                HStack(spacing: 6) {
-                    Spacer()
-                    ForEach(0..<8, id: \.self) { i in
-                        let held = model.heldButtons.contains(Int64(i))
-                        Text(MouseButtons.name(Int64(i)))
-                            .font(.system(size: 11, weight: held ? .semibold : .regular))
-                            .foregroundColor(held ? .white : .primary)
-                            .padding(.horizontal, 8).padding(.vertical, 4)
-                            .background(Capsule().fill(held ? UI.accent : Color.white.opacity(0.75)))
-                    }
-                    Spacer()
-                }
-                .padding(.bottom, 8)
-                Text(L("*单击鼠标按键，按键状态将在此处显示。若未正确识别，请点按下方手动适配按钮"))
-                    .font(.system(size: 11)).foregroundColor(UI.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                if !MouseButtonFeed.tapRunning {
-                    Text(L("未开启「辅助功能」权限：只能识别在本窗口内的点击"))
-                        .font(.system(size: 11)).foregroundColor(UI.danger)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
-            }
-            card(L("鼠标按键手动适配"), symbol: "computermouse.badge.plus", tint: .purple) {
-                if let a = model.adaptation {
-                    Text(L("请依次按下鼠标上除左键以外的每个按键（右键、滚轮键、侧键…），每个键按一次，然后点「完成」。"))
-                        .font(.system(size: 12))
-                    ForEach(a.lines, id: \.self) { Text($0).font(.system(size: 12, design: .monospaced)) }
-                    if a.recorded.isEmpty {
-                        Text(L("等待按键…")).font(.system(size: 12)).foregroundColor(UI.secondary)
-                    }
-                    HStack {
-                        Spacer()
-                        Button(L("取消")) { model.adaptation = nil }.buttonStyle(.bordered)
-                        Button(L("完成")) { model.finishAdaptation() }.buttonStyle(.borderedProminent)
-                        Spacer()
-                    }
-                } else {
-                    if let r = model.adaptResult {
-                        ForEach(r.lines, id: \.self) { Text($0).font(.system(size: 12, design: .monospaced)) }
-                        Text(r.summary(expected: model.selectedMouse?.buttonCount ?? 0))
-                            .font(.system(size: 12)).foregroundColor(UI.secondary)
-                    }
-                    HStack {
-                        Spacer()
-                        Button(model.adaptResult == nil ? L("手动适配") : L("重新适配")) { model.beginAdaptation() }
-                            .buttonStyle(.bordered)
-                            .controlSize(.large)
-                        Spacer()
-                    }
-                }
-                Text(L("*第 6–8 键若无反应，可能被厂商驱动占用，或该键只经 HID 厂商页上报（需「输入监控」权限，当前未启用）"))
-                    .font(.system(size: 11)).foregroundColor(UI.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
-        }
-        .onAppear { model.startKeyIdentify() }
-        .onDisappear { model.stopKeyIdentify() }
     }
 
     private var gestureCard: some View {
@@ -901,6 +634,23 @@ struct PreferencesView: View {
                     .frame(height: 34)
                     .modifier(RuleRowStyle(model: model, row: row))
                     Divider().opacity(0.4)
+                }
+                if let step = model.config.volumeStep {
+                    HStack(spacing: 8) {
+                        Text(L("音量每次调节"))
+                        Picker("", selection: Binding(
+                            get: { step },
+                            set: { model.save(model.config.settingVolumeStep($0)) })) {
+                            ForEach(Config.volumeSteps, id: \.self) { v in Text("\(Int(v))%").tag(v) }
+                        }
+                        .labelsHidden()
+                        .frame(width: 80)
+                        Text(L("*数值越大调得越快，所有音量规则一起生效"))
+                            .font(.system(size: 11)).foregroundColor(UI.secondary)
+                        Spacer()
+                    }
+                    .font(.system(size: 12))
+                    .padding(.top, 14)
                 }
             }
         }
@@ -1007,7 +757,7 @@ struct PreferencesView: View {
                     Spacer()
                 }
                 .padding(.vertical, 8)
-                Text(L("导入支持 GestureKit 规则（.json）和 BetterAndBetter 预设（.BABPreset）。导入前会显示可导入与跳过的规则，并自动备份当前规则；保存设置时每天自动备份一次，保留最近 5 份。"))
+                Text(L("导入前会自动备份当前规则；保存设置时每天自动备份一次，保留最近 5 份。"))
                     .font(.system(size: 11)).foregroundColor(UI.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -1083,7 +833,7 @@ struct PreferencesView: View {
 
     private var bottomBar: some View {
         HStack(spacing: 8) {
-            if (model.page.isDevicePage && model.subTab == 1) || model.page == .hotCorners {
+            if model.page.isDevicePage || model.page == .hotCorners {
                 Button("+") { model.editor = RuleEditorState(RuleDraft.new(model: model)) }
                     .buttonStyle(.bordered).frame(width: 34)
                     .accessibilityLabel(Text(L("添加规则")))

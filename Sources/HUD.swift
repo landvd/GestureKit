@@ -1,7 +1,7 @@
 import Cocoa
 
 /// Small text bubble next to the cursor when an action fires
-/// (docs/modules/12-hud.md, docs/RE_MODULES.md §10: 260pt max text width).
+/// (260pt max text width).
 /// One panel is reused: a new message replaces the text and restarts the timer.
 final class HUD {
 

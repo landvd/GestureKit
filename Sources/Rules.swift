@@ -211,6 +211,31 @@ struct Config: Codable {
     }
 }
 
+extension Config {
+    /// 「音量每次调节」: one step size shared by every volume rule (corner scroll or gesture).
+    static let volumeSteps: [Double] = [2, 4, 6, 8, 10, 15, 20]
+
+    /// The step of the first volume rule found (the default top-right corner first); nil = none.
+    var volumeStep: Double? {
+        let all = rulesets.sorted { $0.key == "default" && $1.key != "default" }
+            .flatMap { $0.value.gestures.sorted { $0.key < $1.key }.map(\.value) }
+        return all.first { $0.type == "volume" && ($0.delta ?? 0) != 0 }.map { abs($0.delta!) }
+    }
+
+    /// Every volume rule set to `step`, keeping its direction.
+    func settingVolumeStep(_ step: Double) -> Config {
+        var c = self
+        for (app, rs) in rulesets {
+            for (id, spec) in rs.gestures where spec.type == "volume" {
+                var s = spec
+                s.delta = (spec.delta ?? 0) < 0 ? -step : step
+                c.rulesets[app]?.gestures[id] = s
+            }
+        }
+        return c
+    }
+}
+
 extension JSONEncoder {
     static var pretty: JSONEncoder {
         let e = JSONEncoder()

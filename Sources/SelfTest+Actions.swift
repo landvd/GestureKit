@@ -341,6 +341,21 @@ extension SelfTest {
             Actions.dryRun = false
         }
 
+        // MARK: 音量每次调节（所有音量规则一起改，方向不变，其余动作不动）
+        do {
+            let c0 = Config.defaultConfig
+            let c1 = c0.settingVolumeStep(15)
+            let tr = c1.rulesets["default"]?.gestures
+            check("volume step: default is 6%", c0.volumeStep == 6, "\(c0.volumeStep ?? -1)")
+            check("volume step: set keeps direction",
+                  tr?["corner.topRight.up"]?.delta == 15 && tr?["corner.topRight.down"]?.delta == -15
+                    && c1.volumeStep == 15)
+            check("volume step: other actions untouched",
+                  tr?["corner.bottomLeft.up"]?.delta == c0.rulesets["default"]?.gestures["corner.bottomLeft.up"]?.delta)
+            var none = c0; none.rulesets = ["default": Ruleset(gestures: [:])]
+            check("volume step: no volume rule → nil (option hidden)", none.volumeStep == nil)
+        }
+
         return out
     }
 }

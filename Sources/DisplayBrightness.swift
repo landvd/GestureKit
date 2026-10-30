@@ -1,7 +1,7 @@
 import Cocoa
 import IOKit
 
-/// Brightness for built-in and external displays (docs/modules/09-actions-system.md).
+/// Brightness for built-in and external displays.
 ///
 /// Per display: DisplayServices when the display supports it (built-in panel,
 /// Apple Studio Display / LG UltraFine), otherwise DDC/CI VCP 0x10 over the

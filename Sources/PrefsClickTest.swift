@@ -2,7 +2,7 @@ import Cocoa
 import ApplicationServices
 import SwiftUI
 
-/// `--ui-click-test`: clicks every sidebar page and every device sub-tab of the real
+/// `--ui-click-test`: clicks every sidebar page of the real
 /// settings window with real mouse events, and checks the page actually switched.
 ///
 /// Each item is clicked ONCE, in its blank area (near the right edge of the row, away
@@ -35,26 +35,6 @@ enum PrefsClickTest {
                     }
                     log("\(ok ? "PASS" : "FAIL")  侧栏「\(page.title)」")
                     if !ok { failures += 1 }
-                }
-                _ = onMain { model.page = .normalMouse }
-                usleep(300_000)
-                var tabRowX: CGFloat?
-                for (i, tab) in [L("按键识别"), L("手势设置")].enumerated() {
-                    _ = onMain { model.subTab = i == 0 ? 1 : 0 }
-                    usleep(150_000)
-                    if round == 2 { sendWindowToBack(); verifyInactive() }
-                    // Inside the pill's own 14pt side padding (not on the text)
-                    let ok = clickAndCheck(label: tab, at: { f, _ in CGPoint(x: f.maxX - 5, y: f.midY) }) {
-                        onMain { model.subTab == i } ?? false
-                    }
-                    log("\(ok ? "PASS" : "FAIL")  页签「\(tab)」")
-                    if !ok { failures += 1 }
-                    // The tab row must not move when the selection changes
-                    let x = frameOfControl(L("按键识别"))?.control.minX
-                    if let x0 = tabRowX, let x, abs(x - x0) > 1 {
-                        log("FAIL  页签位置跳动 \(Int(x0)) → \(Int(x))"); failures += 1
-                    }
-                    tabRowX = tabRowX ?? x
                 }
             }
             CGWarpMouseCursorPosition(home)

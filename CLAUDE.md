@@ -3,27 +3,19 @@
 ## 这是什么
 
 `GestureKit` 是一个 macOS 菜单栏鼠标手势工具（Swift + AppKit，无第三方依赖），
-用来替代 BetterAndBetter 2.7.9 中用户实际在用的那部分功能。
-背景与完整设计见 `docs/PROJECT.md`，功能对照见 `docs/PARITY.md`。
+最初用来替代 BetterAndBetter 中用户实际在用的那部分功能，现在独立演进。
 
 当前状态：v0.3（精简版）。保留：鼠标手势（右键或双键起手，直线/斜线/折线/字母/自定义图形）、
-边角滚轮（音量/亮度）、115 个预设动作、设置窗口、导入导出、中英文、权限向导、稳定签名。
-**已移除，不要再加回**：窗口吸附、触控板手势、平滑滚轮/滚轮方向、妙控鼠标、键盘触发、脚本库、iCloud 同步、学习教程/免费 Apps/问题反馈页。
-`--selftest` 全绿；设置窗口改动后跑 `--ui-click-test`（真实点击每个侧栏/页签，约 30 秒，期间别动鼠标）。
-剩余工作与「待人工验证」清单见 `docs/STATUS.md`，未做项见 `docs/PARITY.md` §3.6。
+边角滚轮（音量/亮度，音量步长可调）、115 个预设动作、手势记录与学习、设置窗口、导入导出、中英文、权限向导、稳定签名。
+**已移除，不要再加回**：窗口吸附、触控板手势、平滑滚轮/滚轮方向、妙控鼠标、键盘触发、脚本库、iCloud 同步、
+学习教程/免费 Apps/问题反馈页、导入原版 `.BABPreset`、「按键识别」页（HID 设备枚举）。
+`--selftest` 全绿；设置窗口改动后跑 `--ui-click-test`（真实点击每个侧栏，约 30 秒，期间别动鼠标）。
 
 ## 先读
 
-- **`docs/STATUS.md` — 项目状态与剩余工作清单（先看这个）**
-
-0. `docs/ORIGINAL_FEATURES.md` — 要复刻的原版功能全集（做什么）
-0.5 `docs/IMPLEMENTATION.md` — 实现手册（怎么做：API/算法/骨架）
-0.6 `docs/ALGORITHMS_RECOVERED.md` — 从二进制反编译出的真实算法与常量
-0.7 `docs/UI_UX_SPEC.md` + `docs/ui/*.jpg` — 界面布局与交互规格（实拍）
-0.8 `docs/RE_MODULES.md` — 触控板/按住/边角/平滑滚轮的模块级逆向（含阈值表）
-1. `docs/PROJECT.md` — 架构、每个文件做什么、配置格式、测试方法、技术债
-2. `docs/PARITY.md` — 与原 App 的对照、缺失功能、实现建议
-3. `docs/RE_APPENDIX.md` — 原 App 逆向结论（只作为背景，不要照抄实现）
+1. **`docs/STATUS.md` — 项目状态、测试命令、待人工验证清单（先看这个）**
+2. `docs/PROJECT.md` — 架构、数据流、每个文件做什么、配置格式
+3. `docs/MANUAL_TEST.md` — 人工验收步骤
 
 ## 构建 / 测试 / 运行
 
@@ -96,5 +88,5 @@ open -a ./GestureKit.app
 - [ ] `./build.sh` 通过，selftest 全绿且新增了对应断言
 - [ ] `--dry-run` 下能看到预期动作
 - [ ] 至少人工验证 1 次（Safari/Finder/VS Code 三选二）
-- [ ] 更新 `docs/PARITY.md` 的状态列
+- [ ] 更新 `docs/STATUS.md`（能力表或待验证清单）
 - [ ] 不引入新的已知崩溃（日志无异常堆栈）

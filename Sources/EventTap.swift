@@ -82,7 +82,6 @@ final class EventTap {
         self.source = source
         CFRunLoopAddSource(EventTap.loop, source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        MouseButtonFeed.tapRunning = true
         return true
     }
 
@@ -91,7 +90,6 @@ final class EventTap {
         if let source { CFRunLoopRemoveSource(EventTap.loop, source, .commonModes) }
         tap = nil
         source = nil
-        MouseButtonFeed.tapRunning = false
     }
 
     func reenable() {
@@ -122,8 +120,6 @@ private func gestureTapCallback(
         return Unmanaged.passUnretained(event)
     }
     if TapIsolationTest.active { TapIsolationTest.record(event) }
-    // 设置页「按键识别」只观察（未打开该页时只是一次布尔判断）
-    if MouseButtonFeed.isActive { MouseButtonFeed.publish(type: type, event: event) }
     guard TapStats.enabled else { return EventTap.dispatch(tap.engine, type: type, event: event) }
     let t0 = DispatchTime.now().uptimeNanoseconds
     let out = EventTap.dispatch(tap.engine, type: type, event: event)

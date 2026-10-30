@@ -1,8 +1,7 @@
 import Cocoa
 
-/// Window layout math, reconstructed from the original's `presetAction:`
-/// (see docs/RE_MODULES.md §6): the original works on integer screen
-/// dimensions and integer division, so odd sizes round down.
+/// Window layout math on integer screen dimensions with integer division,
+/// so odd sizes round down.
 enum WindowLayout {
 
     enum Op: String, CaseIterable {

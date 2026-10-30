@@ -278,7 +278,7 @@ final class Actions {
         }
     }
 
-    // MARK: - Window snapping (docs/RE_MODULES.md §6)
+    // MARK: - Window snapping
 
     private var mainHeight: CGFloat { Actions.onMain { NSScreen.screens.first?.frame.maxY ?? 0 } }
 
@@ -656,7 +656,7 @@ final class Actions {
         effects.runAppleScript(source)
     }
 
-    // MARK: - Open app / URL, type text, run shortcut (docs/modules/10-actions-input-script.md)
+    // MARK: - Open app / URL, type text, run shortcut
 
     /// bundleID first (LaunchServices finds it wherever it moved), then the saved
     /// .app path, then an already-running app with that bundle id.
