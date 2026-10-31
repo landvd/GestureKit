@@ -39,6 +39,8 @@ CGEventTap（TapThread 独立线程）
 | `ActionCatalog.swift` | 预设动作清单与显示名 |
 | `WindowLayout.swift` | 半屏/四分之一屏等布局计算 |
 | `OutputVolume.swift` / `DisplayBrightness.swift` | CoreAudio 音量；内建屏 + 外接屏 DDC 亮度 |
+| `SmoothScroll.swift` | 平滑滚动：拦下滚轮一格，独立队列 120Hz 分步重发 |
+| `LinkDrag.swift` | Safari 拖链接新开标签：AX 判定（松手后在后台）+ 打开 |
 | `HUD.swift` / `GestureTrail.swift` | 光标旁提示；手势轨迹 |
 | `Preferences.swift` / `RuleEditor.swift` | 设置窗口；新增/编辑规则面板 |
 | `PermissionWizard.swift` | 辅助功能权限向导 |

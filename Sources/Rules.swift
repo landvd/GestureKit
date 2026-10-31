@@ -86,6 +86,13 @@ struct Config: Codable {
     var learnedStrokes: [String: [[CGPoint]]]?
     /// 反例：手势 id → 用户说「不该触发」的笔画；与之相似的笔画不再触发该手势。每个最多 10 笔。
     var rejectedStrokes: [String: [[CGPoint]]]?
+    /// 平滑滚动（普通鼠标滚轮，缺省开，false = 关）；三个参数缺省见 SmoothScroller.Settings
+    var smoothScrollEnabled: Bool?
+    var smoothScrollStep: Double?
+    var smoothScrollGain: Double?
+    var smoothScrollDuration: Double?
+    /// Safari：把链接拖到页面内松开 → 后台新标签打开（缺省开，false = 关）
+    var dragLinkToNewTab: Bool?
     var rulesets: [String: Ruleset]
 
     static func loadOrCreate() -> Config {

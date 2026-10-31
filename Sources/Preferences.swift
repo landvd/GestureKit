@@ -656,6 +656,24 @@ struct PreferencesView: View {
         }
     }
 
+    private func scrollSlider(_ title: String, _ hint: String, _ key: WritableKeyPath<Config, Double?>,
+                              _ fallback: Double, _ range: ClosedRange<Double>, step: Double,
+                              format: String) -> some View {
+        let value = model.config[keyPath: key] ?? fallback
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title).frame(width: 64, alignment: .leading)
+                Slider(value: Binding(get: { value },
+                                      set: { v in var c = model.config; c[keyPath: key] = v == fallback ? nil : v; model.save(c) }),
+                       in: range, step: step)
+                    .frame(width: 180)
+                    .accessibilityLabel(Text(title))
+                Text(String(format: format, value)).frame(width: 40, alignment: .trailing)
+            }
+            Text(hint).font(.system(size: 10)).foregroundColor(UI.secondary)
+        }
+    }
+
     private var generalCards: some View {
         generalCardsContent.onAppear { model.refreshLoginItem() }
     }
@@ -705,6 +723,36 @@ struct PreferencesView: View {
                             }.labelsHidden().frame(width: 140)
                         }
                         Text(L("*按住右键：画完松开执行动作；只单击右键（没画）时右键菜单照常弹出\n*两种方式共用同一套手势规则，按住时按字母键的规则也照样可用"))
+                            .font(.system(size: 10)).foregroundColor(UI.secondary)
+                        Toggle(L("Safari：把链接拖到页面内松开，在后台新标签打开"), isOn: Binding(
+                            get: { model.config.dragLinkToNewTab ?? true },
+                            set: { v in var c = model.config; c.dragLinkToNewTab = v ? nil : false; model.save(c) }))
+                            .toggleStyle(.checkbox)
+                    }
+                    Spacer()
+                }
+            }
+            card(L("滚动"), symbol: "scroll", tint: .teal) {
+                HStack {
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle(L("平滑滚动"), isOn: Binding(
+                            get: { model.config.smoothScrollEnabled ?? true },
+                            set: { v in var c = model.config; c.smoothScrollEnabled = v ? nil : false; model.save(c) }))
+                            .toggleStyle(.checkbox)
+                        Group {
+                            scrollSlider(L("最短步长"), L("控制单次滚动的最短距离"),
+                                         \.smoothScrollStep, SmoothScroller.Settings.defaultStep,
+                                         SmoothScroller.Settings.stepRange, step: 1, format: "%.0f")
+                            scrollSlider(L("速度增益"), L("控制滚动距离的放大倍数"),
+                                         \.smoothScrollGain, SmoothScroller.Settings.defaultGain,
+                                         SmoothScroller.Settings.gainRange, step: 0.125, format: "%.3g")
+                            scrollSlider(L("持续时间"), L("控制滚动的缓动持续时间（秒）"),
+                                         \.smoothScrollDuration, SmoothScroller.Settings.defaultDuration,
+                                         SmoothScroller.Settings.durationRange, step: 0.05, format: "%.2f")
+                        }
+                        .disabled(model.config.smoothScrollEnabled == false)
+                        Text(L("*只作用于普通鼠标滚轮；按住 ⌃⌥⌘⇧ 时、黑名单 App 和屏幕边角不生效"))
                             .font(.system(size: 10)).foregroundColor(UI.secondary)
                     }
                     Spacer()

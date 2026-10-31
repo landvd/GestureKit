@@ -27,7 +27,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>GestureKit 需要控制系统音量。</string>
+	<string>GestureKit 需要控制其他 App 来执行你设置的动作，例如系统操作、在 Safari 后台新开标签。</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

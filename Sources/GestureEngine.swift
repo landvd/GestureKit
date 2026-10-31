@@ -31,6 +31,12 @@ final class GestureEngine {
     /// gesture history (手势记录) and the 「未识别」 hint. Called on the recognition queue
     /// (strokes) or the tap thread (keys).
     var onRecognized: ((_ result: Recognition, _ points: [CGPoint], _ app: String) -> Void)?
+    /// Wheel smoothing. nil = none (selftest default: tests never post real scrolls).
+    var smoother: SmoothScroller?
+    /// Safari link drag finished (start, end). Runs through `deferWork`, off the tap thread.
+    var onLinkDrag: (CGPoint, CGPoint) -> Void = LinkDrag.handle
+    /// Where an unmodified left drag began in Safari (nil = not a link-drag candidate).
+    private var linkDragStart: CGPoint?
     var paused = false
     /// When set, ruleset lookup uses this bundle id instead of the frontmost app
     /// (used by --selftest so tests don't depend on what is in front).
@@ -131,6 +137,17 @@ final class GestureEngine {
 
         case .scrollWheel:
             handleCornerScroll(at: point, event: event)
+            // The one swallow outside a chord: the wheel notch is re-emitted by the smoother.
+            // Hot corners keep the raw wheel, so a corner scroll never moves the page.
+            if let smoother, config.smoothScrollEnabled != false, !chordActive,
+               cornerName(for: point) == "none" {
+                let settings = SmoothScroller.Settings(config)
+                guard let d = SmoothScroller.delta(of: event, settings: settings) else {
+                    return Unmanaged.passUnretained(event)
+                }
+                smoother.add(dx: d.dx, dy: d.dy, duration: settings.duration)
+                return nil
+            }
             return Unmanaged.passUnretained(event)
 
         default:
@@ -153,7 +170,12 @@ final class GestureEngine {
             }
         }
         downButtons.insert(button)
+        linkDragStart = nil
         if downButtons.count == 1 {
+            if button == 0, config.dragLinkToNewTab != false, frontBundleID() == LinkDrag.bundleID,
+               event.flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty {
+                linkDragStart = point
+            }
             if button == 1, config.gestureButton == "right", !GestureEngine.isOwnReplay(at: point) {
                 // 右键手势：按下先吞，松开时再决定是手势还是普通右键
                 beginChord(at: point)
@@ -173,6 +195,13 @@ final class GestureEngine {
     private func buttonUp(_ button: Int64, at point: CGPoint,
                           event: CGEvent) -> Unmanaged<CGEvent>? {
         downButtons.remove(button)
+        if button == 0, let start = linkDragStart {
+            linkDragStart = nil
+            if distance(from: start, to: point) >= LinkDrag.minDistance {
+                let report = onLinkDrag
+                deferWork { report(start, point) }
+            }
+        }
         let downWasSwallowed = chordSwallowed.remove(button) != nil
         // 任意键抬起即结算
         if chordActive { finishChord(released: button) }

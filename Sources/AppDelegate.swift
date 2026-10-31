@@ -117,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.warmUp()                  // screen layout + front app, read here on the main thread
         engine.engineQueue = { TapThread.shared.perform($0) }
         engine.strokeInterval = 1.0 / 60
+        engine.smoother = SmoothScroller()
         MainStallWatch.start()
 
         setupStatusItem()
