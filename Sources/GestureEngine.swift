@@ -33,6 +33,10 @@ final class GestureEngine {
     var onRecognized: ((_ result: Recognition, _ points: [CGPoint], _ app: String) -> Void)?
     /// Wheel smoothing. nil = none (selftest default: tests never post real scrolls).
     var smoother: SmoothScroller?
+    /// A stroke ended at this point with no button left down. Its drags were swallowed, so
+    /// the system's idea of the cursor is still where the stroke began and the cursor can
+    /// snap back there; the app points this at `CursorWatch.resync`. Selftest: records only.
+    var onStrokeEnded: (CGPoint) -> Void = { _ in }
     /// Safari link drag finished (start, end). Runs through `deferWork`, off the tap thread.
     var onLinkDrag: (CGPoint, CGPoint) -> Void = LinkDrag.handle
     /// Where an unmodified left drag began in Safari (nil = not a link-drag candidate).
@@ -262,6 +266,7 @@ final class GestureEngine {
             let rules = ruleset(), cfg = config, app = frontBundleID() ?? ""
             let report = onRecognized
             deferWork {
+                CursorWatch.logStroke(points)
                 let r = Recognizer.recognize(points: points, rules: rules, config: cfg)
                 if r.via == .shape { Log.write("shape gesture score=\(String(format: "%.1f", r.score))") }
                 if r.via != .shape && r.via != .direction {
@@ -270,6 +275,10 @@ final class GestureEngine {
                 if r.fires, let spec = r.spec { Actions.shared.perform(spec) }
                 report?(r, points, app)
             }
+        }
+        if moved, downButtons.isEmpty {
+            let report = onStrokeEnded
+            deferWork { report(point) }
         }
         if !points.isEmpty { onChordStroke?(points, true) }
         chordPoints = []

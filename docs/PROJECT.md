@@ -45,6 +45,7 @@ CGEventTap（TapThread 独立线程）
 | `Preferences.swift` / `RuleEditor.swift` | 设置窗口；新增/编辑规则面板 |
 | `PermissionWizard.swift` | 辅助功能权限向导 |
 | `L10n*.swift` | 中文原文作 key 的英文表 |
+| `CursorWatch.swift` | 手势结束同步光标位置；诊断：10Hz 采样光标，跳到屏幕中央或大幅跳动时写日志（`cursor jump:`）；另记显示器变化和唤醒 |
 | `Log.swift` | 文件日志（2MB 轮换；测试写临时文件） |
 | `PerfBench.swift` / `TapIsolationTest.swift` / `PrefsClickTest.swift` | `--perf` / `--tap-isolation-test` / `--ui-click-test` |
 | `SelfTest*.swift` | 各区域自检，在 `SelfTestSuites.swift` 注册 |

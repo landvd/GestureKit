@@ -118,7 +118,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.engineQueue = { TapThread.shared.perform($0) }
         engine.strokeInterval = 1.0 / 60
         engine.smoother = SmoothScroller()
+        engine.onStrokeEnded = CursorWatch.resync
         MainStallWatch.start()
+        CursorWatch.start()
 
         setupStatusItem()
         applyMenuBarIcon(config)
