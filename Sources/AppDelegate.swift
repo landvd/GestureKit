@@ -23,9 +23,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.applyCaptureHotkey(cfg)
             self?.applyClothesline(cfg)
         }
+        m.onCaptureRecording = { [weak self] _ in
+            guard let self else { return }
+            self.applyCaptureHotkey(self.config)
+        }
         return m
     }()
     private var captureHotkey: Hotkey?
+    /// 当前注册（或试过）的截图快捷键："code:flags" / "off"
+    private var captureHotkeyDesc: String?
     private var clotheslineHotkey: Hotkey?
     private var promptedForAccessibility = false
     private var wizardAutoShown = false
@@ -313,20 +319,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Capture
 
-    /// ⌃⌘A：按配置注册 / 注销。被别的 App（如微信）占用时提示一次。
+    /// 截图快捷键：按配置注册 / 注销 / 换键。被别的 App（如微信）占用时提示一次。
+    /// 设置里录新快捷键期间暂停（否则按下旧组合会直接开始截图，录不进去）。
     private func applyCaptureHotkey(_ cfg: Config) {
-        let want = cfg.captureHotkey ?? true
-        guard want != (captureHotkey != nil) else { return }
+        let sc = Capture.Shortcut(config: cfg)
+        let want = (cfg.captureHotkey ?? true) && !prefModel.recordingCaptureKey ? sc : nil
+        let desc = want.map { "\($0.code):\($0.flags)" } ?? "off"
+        guard desc != captureHotkeyDesc else { return }   // 没变：不重试、不重复提示
+        captureHotkeyDesc = desc
         captureHotkey?.unregister()
         captureHotkey = nil
-        guard want else { Log.write("capture hotkey: off"); return }
-        let hk = Hotkey(keyCode: Capture.hotkeyKeyCode, modifiers: Capture.hotkeyModifiers) {
+        prefModel.captureHotkeyTaken = false
+        guard let want else { Log.write("capture hotkey: off"); return }
+        let hk = Hotkey(keyCode: UInt32(want.code), modifiers: want.carbonModifiers) {
             CaptureController.shared.start()
         }
-        Log.write("capture hotkey ⌃⌘A: \(hk.status)")
-        captureHotkey = hk          // 失败也留着：避免每次保存设置都重试、重复提示；关再开开关会重试
+        Log.write("capture hotkey \(want.label): \(hk.status)")
+        captureHotkey = hk
         guard hk.status != .ok else { return }
-        HUD.shared.show(L("⌃⌘A 已被其他 App 占用（例如微信截图），GestureKit 截图快捷键未生效"), duration: 3)
+        prefModel.captureHotkeyTaken = true
+        HUD.shared.show(L("%@ 已被其他 App 占用（例如微信截图），GestureKit 截图快捷键未生效", want.label), duration: 3)
     }
 
     /// 衣架开关：悬停监听 + ⌃⌥T 一起开关

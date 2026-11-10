@@ -408,6 +408,36 @@ extension SelfTest {
         check("conflict: BetterAndBetter is detected among running apps",
               AppDelegate.conflicts(in: ["com.apple.Safari", "cn.better365.BetterAndBetter", nil]) == ["cn.better365.BetterAndBetter"]
               && AppDelegate.conflicts(in: ["com.apple.Safari", "com.better365.BetterAndBetterHelper"]).isEmpty)
+        // 漏了松开事件（右键手势按下后 tap 没收到抬起）：之后的左键点击 / 拖动不能一直被吞
+        do {
+            var held = true
+            var cfg = Config.defaultConfig
+            cfg.gestureButton = "right"
+            let e = GestureEngine(config: cfg)
+            e.rulesetOverride = "selftest.none"
+            e.isButtonHeld = { _ in held }
+            let r1 = run(e, [(.rightMouseDown, a, 1)])
+            held = false                                     // 右键其实已松开，抬起事件丢了
+            let r2 = run(e, [(.leftMouseDown, b, 0), (.leftMouseDragged, a, 0), (.leftMouseUp, a, 0)])
+            check("stuck chord: after a lost right-up, left click and drag pass again",
+                  r1 == [false] && r2 == [true, true, true], "\(r1) \(r2)")
+
+            held = true
+            let e2 = GestureEngine(config: cfg)
+            e2.rulesetOverride = "selftest.none"
+            e2.isButtonHeld = { _ in held }
+            _ = run(e2, [(.rightMouseDown, a, 1)])
+            held = false
+            let r3 = run(e2, [(.leftMouseDragged, b, 0)])  // 连左键按下也丢了，只来了拖动
+            check("stuck chord: a stray drag also clears it", r3 == [true], "\(r3)")
+
+            held = true
+            let e3 = GestureEngine(config: cfg)
+            e3.rulesetOverride = "selftest.none"
+            e3.isButtonHeld = { _ in held }
+            let r4 = run(e3, [(.rightMouseDown, a, 1), (.leftMouseDown, a, 0), (.rightMouseDragged, b, 1)])
+            check("stuck chord: a real chord (keys still held) is untouched", r4 == [false, false, false], "\(r4)")
+        }
         return out
     }
 }

@@ -16,6 +16,10 @@ final class ClotheslineController: NSObject {
 
     private var panel: NSPanel?
     private var lineView: ClotheslineView?
+    /// 衣架当前展开在哪块屏幕
+    private weak var shownScreen: NSScreen?
+    /// 设置页里的样式预览：不响应悬停 / 点击，不碰真实衣架
+    var isPreview = false
     private var monitors: [Any] = []
     private var zones: [(CGRect, NSScreen)] = []
     private var dwellWork: DispatchWorkItem?
@@ -98,6 +102,12 @@ final class ClotheslineController: NSObject {
     private func mouseMoved() {
         let p = NSEvent.mouseLocation
         if isShown {
+            // 展开着时鼠标停到另一块屏幕的菜单栏正中：搬过去（以前会留在原来那块屏幕上，看起来像没展开）
+            if let (_, other) = zones.first(where: { $0.0.contains(p) }), other != shownScreen {
+                Log.write("clothesline: hover → move to screen \(NSScreen.screens.firstIndex(of: other) ?? -1)")
+                show(on: other, dropping: nil)
+                return
+            }
             let inside = (panel?.frame.contains(p) ?? false) || zones.contains { $0.0.contains(p) }
             if inside {
                 mouseEntered = mouseEntered || (panel?.frame.contains(p) ?? false)
@@ -119,6 +129,7 @@ final class ClotheslineController: NSObject {
             guard let self else { return }
             self.dwellWork = nil
             guard self.zones.contains(where: { $0.0.contains(NSEvent.mouseLocation) }) else { return }
+            Log.write("clothesline: hover → show on screen \(NSScreen.screens.firstIndex(of: screen) ?? -1)")
             self.show(on: screen, dropping: nil)
         }
         dwellWork = w
@@ -171,6 +182,7 @@ final class ClotheslineController: NSObject {
             if dropping == nil { lineView?.swingAll() }
         }
         isShown = true
+        shownScreen = screen
         mouseEntered = false
         sticky = false
         leaveWork?.cancel(); leaveWork = nil
@@ -586,6 +598,7 @@ final class ClotheslineCard: NSView, NSDraggingSource {
     // MARK: Mouse
 
     override func mouseEntered(with event: NSEvent) {
+        guard controller?.isPreview != true else { return }
         isHovered = true
         closeButton.isHidden = false
         line?.schedulePreview(for: self)

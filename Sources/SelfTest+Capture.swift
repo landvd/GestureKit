@@ -155,8 +155,22 @@ extension SelfTest {
 
         // MARK: wiring
         do {
-            check("capture: hotkey is ⌃⌘A", Capture.hotkeyKeyCode == 0
-                  && Capture.hotkeyModifiers == UInt32(controlKey | cmdKey))
+            typealias SC = Capture.Shortcut
+            check("capture: default shortcut is ⌃⌘A", SC(config: .defaultConfig) == .default
+                  && SC.default.code == 0 && SC.default.carbonModifiers == UInt32(controlKey | cmdKey)
+                  && SC.default.label == "⌃⌘A", SC.default.label)
+            var custom = Config.defaultConfig
+            custom.captureShortcutKey = 1; custom.captureShortcutFlags = 0x0012_0000      // ⇧⌘S
+            check("capture: custom shortcut is read and mapped to Carbon",
+                  SC(config: custom).label == "⇧⌘S" && SC(config: custom).carbonModifiers == UInt32(shiftKey | cmdKey))
+            custom.captureShortcutFlags = 0x0002_0000                                    // 只有 ⇧
+            check("capture: a shortcut without ⌘/⌃/⌥ is rejected → default",
+                  !SC(code: 1, flags: 0x0002_0000).isValid && SC(config: custom) == .default)
+            check("capture: stray flag bits are dropped",
+                  SC(code: 0, flags: 0x0014_0000 | 0x100).flags == 0x0014_0000)
+            custom.captureShortcutKey = 17; custom.captureShortcutFlags = 0x0018_0000    // ⌥⌘T
+            let saved = (try? JSONDecoder().decode(Config.self, from: JSONEncoder().encode(custom))).map(SC.init(config:))
+            check("capture: custom shortcut survives a save", saved?.label == "⌥⌘T", saved?.label ?? "nil")
             check("capture: taken hotkey is reported as taken",
                   Hotkey.status(for: OSStatus(eventHotKeyExistsErr)) == .taken && Hotkey.status(for: noErr) == .ok)
 

@@ -97,6 +97,9 @@ struct Config: Codable {
     var dragLinkToNewTab: Bool?
     /// ⌃⌘A 截图（缺省开，false = 不注册快捷键；「截图」动作照常可用）
     var captureHotkey: Bool?
+    /// 截图快捷键（缺省 ⌃⌘A）：keyCode + CGEventFlags 原始值（与 shortcut 动作同一套表示）
+    var captureShortcutKey: Int?
+    var captureShortcutFlags: UInt64?
     /// 截图衣架（缺省开，false = 截图不挂、不响应悬停和 ⌃⌥T）
     var clotheslineEnabled: Bool?
     /// 衣架样式：wood（缺省）/ polaroid / binder / plastic / tape（ClotheslineStyle）

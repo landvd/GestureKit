@@ -73,6 +73,54 @@ final class PrefModel: ObservableObject {
     @Published var editor: RuleEditorState?
     /// 保存后通知引擎（AppDelegate 设置）
     var onSave: ((Config) -> Void)?
+    /// 「截图快捷键」正在录制：AppDelegate 期间注销旧快捷键
+    @Published var recordingCaptureKey = false
+    /// 截图快捷键被别的 App 占用
+    @Published var captureHotkeyTaken = false
+    /// 录制的组合缺修饰键时的提示
+    @Published var captureKeyHint: String?
+    var onCaptureRecording: ((Bool) -> Void)?
+    private var captureKeyMonitor: Any?
+
+    /// 点「录制」后按下新组合；Esc 取消。至少要带 ⌘ / ⌃ / ⌥。
+    func recordCaptureKey() {
+        stopRecordingCaptureKey()
+        recordingCaptureKey = true
+        captureKeyHint = nil
+        onCaptureRecording?(true)
+        captureKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let self else { return e }
+            let mods = e.modifierFlags.intersection([.command, .option, .control, .shift])
+            if e.keyCode == 53 && mods.isEmpty { self.stopRecordingCaptureKey(); return nil }
+            let sc = Capture.Shortcut(code: Int(e.keyCode), flags: UInt64(mods.rawValue))
+            guard sc.isValid else {
+                self.captureKeyHint = L("需要带 ⌘、⌃ 或 ⌥ 中的至少一个")
+                return nil
+            }
+            var c = self.config
+            c.captureShortcutKey = sc == .default ? nil : sc.code
+            c.captureShortcutFlags = sc == .default ? nil : sc.flags
+            self.stopRecordingCaptureKey(save: c)
+            return nil
+        }
+    }
+
+    func stopRecordingCaptureKey(save c: Config? = nil) {
+        if let m = captureKeyMonitor { NSEvent.removeMonitor(m) }
+        captureKeyMonitor = nil
+        guard recordingCaptureKey else { return }
+        recordingCaptureKey = false
+        if let c { save(c) }              // onSave → 按新组合注册
+        onCaptureRecording?(false)        // 没改也要把旧组合注册回来
+    }
+
+    func resetCaptureKey() {
+        var c = config
+        c.captureShortcutKey = nil
+        c.captureShortcutFlags = nil
+        captureKeyHint = nil
+        save(c)
+    }
 
     struct Row: Identifiable {
         let id: String          // gesture id (rules.json key)
@@ -736,25 +784,37 @@ struct PreferencesView: View {
                 HStack {
                     Spacer()
                     VStack(alignment: .leading, spacing: 10) {
-                        Toggle(L("按 ⌃⌘A 截图"), isOn: Binding(
-                            get: { model.config.captureHotkey ?? true },
-                            set: { v in var c = model.config; c.captureHotkey = v ? nil : false; model.save(c) }))
-                            .toggleStyle(.checkbox)
+                        HStack {
+                            Toggle(L("截图快捷键"), isOn: Binding(
+                                get: { model.config.captureHotkey ?? true },
+                                set: { v in var c = model.config; c.captureHotkey = v ? nil : false; model.save(c) }))
+                                .toggleStyle(.checkbox)
+                            Button(model.recordingCaptureKey ? L("请按下新的组合键…")
+                                   : Capture.Shortcut(config: model.config).label) {
+                                model.recordingCaptureKey ? model.stopRecordingCaptureKey() : model.recordCaptureKey()
+                            }
+                            .frame(minWidth: 90)
+                            .help(L("点击后按下新的组合键；Esc 取消"))
+                            if Capture.Shortcut(config: model.config) != .default {
+                                Button(L("恢复 ⌃⌘A")) { model.resetCaptureKey() }
+                            }
+                        }
+                        if let hint = model.captureKeyHint {
+                            Text(hint).font(.system(size: 10)).foregroundColor(.orange)
+                        } else if model.captureHotkeyTaken {
+                            Text(L("这个组合键已被其他 App 占用，请换一个，或先关掉那个 App 的快捷键"))
+                                .font(.system(size: 10)).foregroundColor(.orange)
+                        }
                         Text(L("*拖框选区域，或单击选中整个窗口；松手后可调整\n*双击框内 / ✓：复制并挂到衣架　回车：只复制　⌘S：存到桌面　P：钉在屏幕上　T：识别文字　Esc：取消\n*也可以把「截图（可调整选框）」动作绑到手势上；需要「屏幕录制」权限"))
                             .font(.system(size: 10)).foregroundColor(UI.secondary)
                         Toggle(L("截图衣架"), isOn: Binding(
                             get: { model.config.clotheslineEnabled ?? true },
                             set: { v in var c = model.config; c.clotheslineEnabled = v ? nil : false; model.save(c) }))
                             .toggleStyle(.checkbox)
-                        HStack {
-                            Text(L("衣架样式："))
-                            Picker("", selection: Binding(
-                                get: { ClotheslineStyle(config: model.config.clotheslineStyle).rawValue },
-                                set: { v in var c = model.config; c.clotheslineStyle = v == ClotheslineStyle.default.rawValue ? nil : v; model.save(c) })) {
-                                ForEach(ClotheslineStyle.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
-                            }.labelsHidden().frame(width: 140)
-                        }
-                        .disabled(model.config.clotheslineEnabled == false)
+                        Text(L("衣架样式：")).padding(.top, 2)
+                        ClotheslineStylePicker(model: model)
+                            .disabled(model.config.clotheslineEnabled == false)
+                            .opacity(model.config.clotheslineEnabled == false ? 0.5 : 1)
                         HStack {
                             Button(L("打开衣架文件夹")) { ClotheslineSettings.openFolder() }
                             Button(L("清空衣架…")) { ClotheslineSettings.clearAll() }

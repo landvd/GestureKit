@@ -10,9 +10,41 @@ enum Capture {
     /// 「截图」动作（system/capture）发出，AppDelegate 收到后开始截图
     static let startNotification = Notification.Name("GestureKit.startCapture")
 
-    /// 截图的默认快捷键 ⌃⌘A（kVK_ANSI_A = 0）
-    static let hotkeyKeyCode: UInt32 = 0
-    static let hotkeyModifiers: UInt32 = UInt32(controlKey | cmdKey)
+    /// 截图快捷键：键码 + CGEventFlags 原始值（⌃ 0x40000 / ⌥ 0x80000 / ⇧ 0x20000 / ⌘ 0x100000）
+    struct Shortcut: Equatable {
+        var code: Int
+        var flags: UInt64
+        /// 缺省 ⌃⌘A（kVK_ANSI_A = 0）
+        static let `default` = Shortcut(code: 0, flags: 0x0014_0000)
+
+        var label: String { ActionCatalog.keyLabel(code: code, flags: flags) }
+
+        /// 全局快捷键至少要带 ⌘ / ⌃ / ⌥ 之一，否则会吃掉正常打字
+        var isValid: Bool { flags & 0x001C_0000 != 0 }
+
+        /// → Carbon RegisterEventHotKey 用的修饰键
+        var carbonModifiers: UInt32 {
+            var m = 0
+            if flags & 0x0010_0000 != 0 { m |= cmdKey }
+            if flags & 0x0004_0000 != 0 { m |= controlKey }
+            if flags & 0x0008_0000 != 0 { m |= optionKey }
+            if flags & 0x0002_0000 != 0 { m |= shiftKey }
+            return UInt32(m)
+        }
+
+        init(code: Int, flags: UInt64) {
+            self.code = code
+            self.flags = flags & 0x001E_0000            // 只留 ⌃⌥⇧⌘
+        }
+
+        init(config c: Config) {
+            if let k = c.captureShortcutKey, let f = c.captureShortcutFlags, Shortcut(code: k, flags: f).isValid {
+                self.init(code: k, flags: f)
+            } else {
+                self = .default
+            }
+        }
+    }
 
     /// 一块屏幕的定格画面
     struct Frozen {

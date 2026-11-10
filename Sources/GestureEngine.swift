@@ -107,6 +107,11 @@ final class GestureEngine {
             return buttonDown(b, at: point, event: event)
 
         case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+            // 拖动的键根本没记为按下，却还在手势里：多半漏了松开事件，状态卡住了（会吞掉所有拖动）
+            if chordActive || !chordSwallowed.isEmpty,
+               !downButtons.contains(GestureEngine.dragButton(type, event)), dropStaleChord(reason: "drag") {
+                return Unmanaged.passUnretained(event)
+            }
             if chordActive {
                 track(point)
                 return nil
@@ -165,6 +170,7 @@ final class GestureEngine {
 
     private func buttonDown(_ button: Int64, at point: CGPoint,
                             event: CGEvent) -> Unmanaged<CGEvent>? {
+        if chordActive || !chordSwallowed.isEmpty { _ = dropStaleChord(reason: "down") }
         if !chordActive && !downButtons.isEmpty {
             let stale = downButtons.filter { !isButtonHeld($0) }
             if !stale.isEmpty {
@@ -219,6 +225,24 @@ final class GestureEngine {
         case .rightMouseDragged: return 1
         default: return event.getIntegerValueField(.mouseEventButtonNumber)
         }
+    }
+
+    /// 手势进行中、但参与的键实际都已松开（tap 漏了松开事件）：清掉状态，免得之后的点击 / 拖动一直被吞。
+    /// 只在异常时机调用（按下新键、拖动的键不在已按下的键里），正常画手势不查物理按键。
+    private func dropStaleChord(reason: String) -> Bool {
+        let tracked = downButtons.union(chordSwallowed)
+        guard !tracked.contains(where: isButtonHeld) else { return false }
+        Log.write("chord: stale state reset (\(reason)), buttons \(tracked.sorted()) no longer held")
+        if chordActive { onChordStroke?([], true) }
+        chordActive = false
+        chordPoints = []
+        chordMoved = false
+        chordKeyFired = nil
+        rightSolo = false
+        draining = false
+        downButtons.removeAll()
+        chordSwallowed.removeAll()
+        return true
     }
 
     private func beginChord(at point: CGPoint) {
