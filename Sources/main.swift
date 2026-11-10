@@ -580,6 +580,10 @@ if CommandLine.arguments.contains("--perf") {
     exit(PerfBench.run())
 }
 
+if CommandLine.arguments.contains("--ocr-test") {
+    exit(TextRecognition.runTest())
+}
+
 if CommandLine.arguments.contains("--selftest") {
     let code = SelfTest.run()
     Log.flush()

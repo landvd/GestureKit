@@ -8,7 +8,9 @@ import Foundation
 ///   snap      窗口布局（op = halfLeft/halfRight/halfTop/halfBottom/
 ///             quarterTopLeft/…/center/maximize）
 ///   system    系统动作（op = missionControl/showDesktop/launchpad/lockScreen/
-///             sleep/emptyTrash/hideOthers/toggleDarkMode/spotlight/appSwitcher）
+///             sleep/emptyTrash/hideOthers/toggleDarkMode/spotlight/appSwitcher/
+///             capture = GestureKit 自带截图（同 ⌃⌘A，见 CaptureOverlay.swift）/
+///             toggleClothesline = 显示/隐藏截图衣架（同 ⌃⌥T）…）
 ///   quitApp / volume / brightness
 ///   brightness 的 op：nil = 光标所在屏，external = 所有外接屏（DDC/CI），builtin = 内建屏
 ///   openApp   打开 / 切换到 App（bundleID 优先；找不到时用 path 指向的 .app 回退）
@@ -93,6 +95,12 @@ struct Config: Codable {
     var smoothScrollDuration: Double?
     /// Safari：把链接拖到页面内松开 → 后台新标签打开（缺省开，false = 关）
     var dragLinkToNewTab: Bool?
+    /// ⌃⌘A 截图（缺省开，false = 不注册快捷键；「截图」动作照常可用）
+    var captureHotkey: Bool?
+    /// 截图衣架（缺省开，false = 截图不挂、不响应悬停和 ⌃⌥T）
+    var clotheslineEnabled: Bool?
+    /// 衣架样式：wood（缺省）/ polaroid / binder / plastic / tape（ClotheslineStyle）
+    var clotheslineStyle: String?
     var rulesets: [String: Ruleset]
 
     static func loadOrCreate() -> Config {

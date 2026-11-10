@@ -40,6 +40,7 @@ enum ActionCatalog {
         "appSwitcher": "App 切换器",
         "playPause": "播放/暂停", "nextTrack": "下一首", "previousTrack": "上一首",
         "volumeUp": "音量加", "volumeDown": "音量减", "mute": "静音",
+        "capture": "截图（可调整选框）", "toggleClothesline": "显示/隐藏截图衣架",
         "screenshotRegion": "区域截图", "screenshotWindow": "窗口截图",
         "screenshotFull": "全屏截图",
         "openHome": "打开个人目录", "openDocuments": "打开文稿",
@@ -92,7 +93,7 @@ enum ActionCatalog {
         ("媒体", ["playPause", "nextTrack", "previousTrack", "volumeUp", "volumeDown", "mute",
                 "keyboardBacklightUp", "keyboardBacklightDown", "keyboardBacklightMax",
                 "keyboardBacklightMin", "keyboardBacklightMiddle"]),
-        ("截图", ["screenshotRegion", "screenshotWindow", "screenshotFull"]),
+        ("截图", ["capture", "toggleClothesline", "screenshotRegion", "screenshotWindow", "screenshotFull"]),
         ("鼠标", ["leftClick", "rightClick", "middleClick", "middleDown", "middleUp", "scrollLeft", "scrollRight"]),
         ("GestureKit", ["openAppPreferences", "quitGestureKit", "restartGestureKit"])
     ]

@@ -1,0 +1,55 @@
+import Foundation
+
+// 截图 / 衣架 区域的英文表。格式同 L10n.swift：一行一条 `"中文原文": "English",`，
+// 放在 BEGIN-EN / END-EN 之间（scripts/check-l10n.sh 依赖）。
+extension L10n {
+    // BEGIN-EN
+    static let enCapture: [String: String] = [
+        "截图（可调整选框）": "Screenshot (Adjustable Selection)",
+        "截图需要「屏幕录制」权限": "Screenshots need the Screen Recording permission",
+        "请在 系统设置 → 隐私与安全性 → 屏幕与系统录音 里打开 GestureKit。打开后如果仍无法截图，请退出并重新打开 GestureKit。": "Turn on GestureKit in System Settings → Privacy & Security → Screen & System Audio Recording. If screenshots still fail afterwards, quit and reopen GestureKit.",
+        "截图 %@": "Screenshot %@",
+        "截图失败": "Screenshot failed",
+        "已复制": "Copied",
+        "已存到桌面并复制": "Saved to Desktop and copied",
+        "存到桌面（⌘S）": "Save to Desktop (⌘S)",
+        "取消（Esc）": "Cancel (Esc)",
+        "完成：复制并挂到衣架（双击框内）；回车只复制": "Done: copy and hang on the line (double-click inside); Return only copies",
+        "⌃⌘A 已被其他 App 占用（例如微信截图），GestureKit 截图快捷键未生效": "⌃⌘A is taken by another app (e.g. WeChat screenshots); the GestureKit screenshot shortcut is not active",
+        "按 ⌃⌘A 截图": "Take a screenshot with ⌃⌘A",
+        "*拖框选区域，或单击选中整个窗口；松手后可调整\n*双击框内 / ✓：复制并挂到衣架　回车：只复制　⌘S：存到桌面　P：钉在屏幕上　T：识别文字　Esc：取消\n*也可以把「截图（可调整选框）」动作绑到手势上；需要「屏幕录制」权限": "*Drag to select an area, or click to pick a whole window; adjust it after releasing\n*Double-click inside / ✓: copy and hang on the line   Return: copy only   ⌘S: save to Desktop   P: pin to screen   T: recognize text   Esc: cancel\n*You can also bind the “Screenshot (Adjustable Selection)” action to a gesture; needs the Screen Recording permission",
+        "显示/隐藏截图衣架": "Show/Hide Screenshot Line",
+        "截图后会挂在这里": "Screenshots hang here",
+        "从衣架上取下": "Take Off the Line",
+        "用「预览」打开": "Open in Preview",
+        "存到桌面": "Save to Desktop",
+        "已存到桌面": "Saved to Desktop",
+        "取消固定": "Unpin",
+        "固定在衣架上": "Pin to the Line",
+        "截图衣架": "Screenshot line",
+        "打开衣架文件夹": "Open Line Folder",
+        "清空衣架…": "Clear the Line…",
+        "清空衣架上的 %d 张截图？": "Clear %d screenshot(s) from the line?",
+        "包括固定的。删除后无法恢复。": "Pinned ones included. This can't be undone.",
+        "清空": "Clear",
+        "*鼠标停在菜单栏正中或按 ⌃⌥T 展开；最近 20 张，重启保留，只存在本机\n*单击复制　双击用「预览」打开　拖到 App 或文件夹　右键：存桌面、固定、取下": "*Rest the pointer in the middle of the menu bar or press ⌃⌥T; keeps the latest 20, survives restarts, stays on this Mac\n*Click to copy   double-click to open in Preview   drag into an app or folder   right-click: save, pin, take off",
+        "正在识别文字…": "Recognizing text…",
+        "没有识别到文字": "No text found",
+        "已复制 %d 个字": "Copied %d characters",
+        "识别文字": "Recognize Text",
+        "原始大小": "Actual Size",
+        "关闭": "Close",
+        "关闭（Esc / 双击）": "Close (Esc / double-click)",
+        "钉在屏幕上": "Pin to Screen",
+        "钉在屏幕上（P）": "Pin to screen (P)",
+        "识别文字并复制（T）": "Recognize and copy text (T)",
+        "木夹麻绳": "Wooden Pegs",
+        "拍立得": "Polaroid",
+        "长尾夹钢丝": "Binder Clips",
+        "彩色塑料夹": "Candy Clips",
+        "和纸胶带": "Washi Tape",
+        "衣架样式": "Line Style",
+        "衣架样式：": "Line style:",
+    ]
+    // END-EN
+}

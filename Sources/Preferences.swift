@@ -732,6 +732,40 @@ struct PreferencesView: View {
                     Spacer()
                 }
             }
+            card(L("截图"), symbol: "camera.viewfinder", tint: .green) {
+                HStack {
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle(L("按 ⌃⌘A 截图"), isOn: Binding(
+                            get: { model.config.captureHotkey ?? true },
+                            set: { v in var c = model.config; c.captureHotkey = v ? nil : false; model.save(c) }))
+                            .toggleStyle(.checkbox)
+                        Text(L("*拖框选区域，或单击选中整个窗口；松手后可调整\n*双击框内 / ✓：复制并挂到衣架　回车：只复制　⌘S：存到桌面　P：钉在屏幕上　T：识别文字　Esc：取消\n*也可以把「截图（可调整选框）」动作绑到手势上；需要「屏幕录制」权限"))
+                            .font(.system(size: 10)).foregroundColor(UI.secondary)
+                        Toggle(L("截图衣架"), isOn: Binding(
+                            get: { model.config.clotheslineEnabled ?? true },
+                            set: { v in var c = model.config; c.clotheslineEnabled = v ? nil : false; model.save(c) }))
+                            .toggleStyle(.checkbox)
+                        HStack {
+                            Text(L("衣架样式："))
+                            Picker("", selection: Binding(
+                                get: { ClotheslineStyle(config: model.config.clotheslineStyle).rawValue },
+                                set: { v in var c = model.config; c.clotheslineStyle = v == ClotheslineStyle.default.rawValue ? nil : v; model.save(c) })) {
+                                ForEach(ClotheslineStyle.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                            }.labelsHidden().frame(width: 140)
+                        }
+                        .disabled(model.config.clotheslineEnabled == false)
+                        HStack {
+                            Button(L("打开衣架文件夹")) { ClotheslineSettings.openFolder() }
+                            Button(L("清空衣架…")) { ClotheslineSettings.clearAll() }
+                        }
+                        .disabled(model.config.clotheslineEnabled == false)
+                        Text(L("*鼠标停在菜单栏正中或按 ⌃⌥T 展开；最近 20 张，重启保留，只存在本机\n*单击复制　双击用「预览」打开　拖到 App 或文件夹　右键：存桌面、固定、取下"))
+                            .font(.system(size: 10)).foregroundColor(UI.secondary)
+                    }
+                    Spacer()
+                }
+            }
             card(L("滚动"), symbol: "scroll", tint: .teal) {
                 HStack {
                     Spacer()

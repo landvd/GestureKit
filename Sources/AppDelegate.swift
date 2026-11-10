@@ -20,9 +20,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.setEngineConfig(cfg)
             self?.applyLanguage(cfg)
             self?.applyMenuBarIcon(cfg)
+            self?.applyCaptureHotkey(cfg)
+            self?.applyClothesline(cfg)
         }
         return m
     }()
+    private var captureHotkey: Hotkey?
+    private var clotheslineHotkey: Hotkey?
     private var promptedForAccessibility = false
     private var wizardAutoShown = false
 
@@ -193,6 +197,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Actions.shared.startTracking()
         // 动作在后台队列执行：事件 tap 回调（主线程，含每次鼠标移动）从不等待动作
         Actions.shared.executor = { Actions.workQueue.async(execute: $0) }
+        NotificationCenter.default.addObserver(forName: Capture.startNotification,
+                                               object: nil, queue: .main) { _ in
+            CaptureController.shared.start()
+        }
+        applyCaptureHotkey(config)
+        NotificationCenter.default.addObserver(forName: ClotheslineController.toggleNotification,
+                                               object: nil, queue: .main) { _ in
+            ClotheslineController.shared.toggle()
+        }
+        ClotheslineController.shared.onStyleChange = { [weak self] style in
+            guard let self else { return }
+            var c = self.config
+            c.clotheslineStyle = style == .default ? nil : style.rawValue
+            self.prefModel.save(c)                 // 写配置 → onSave → applyClothesline 设回样式
+        }
+        CaptureController.shared.onHang = { img, png, scale in
+            ClotheslineController.shared.hang(img, png: png, scale: scale)
+        }
+        if CommandLine.arguments.contains("--clothesline-demo") {
+            // 调试：临时文件夹 + 几张示例图，展开衣架（不碰真实衣架）
+            ClotheslineController.shared.store = ClotheslineStore(
+                dir: FileManager.default.temporaryDirectory.appendingPathComponent("gk-clothesline-demo"))
+            ClotheslineController.shared.store.removeAll()
+            ClotheslineDemo.seed(ClotheslineController.shared.store)
+            ClotheslineController.shared.demoOnMainScreen = true
+        }
+        applyClothesline(config)
+        TextRecognition.warmUp()
+        if let i = CommandLine.arguments.firstIndex(of: "--clothesline-demo"), i + 1 < CommandLine.arguments.count,
+           let st = ClotheslineStyle(rawValue: CommandLine.arguments[i + 1]) {
+            ClotheslineController.shared.style = st          // 演示指定样式（不写配置）
+        }
+        if CommandLine.arguments.contains("--clothesline-demo") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                ClotheslineController.shared.toggle()
+                let store = ClotheslineController.shared.store       // 顺便钉一张，看钉图的样子
+                if let item = store.ordered.last, let img = store.image(item) {
+                    PinnedImages.shared.pin(img, scale: CGFloat(item.scale))
+                }
+            }
+        }
         NotificationCenter.default.addObserver(forName: Actions.openPreferencesNotification,
                                                object: nil, queue: .main) { [weak self] _ in
             self?.openPreferences()
@@ -264,6 +309,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PermissionWizardController.show(autoClose: autoClose) { [weak self] in
             self?.tryStartTap()
         }
+    }
+
+    // MARK: - Capture
+
+    /// ⌃⌘A：按配置注册 / 注销。被别的 App（如微信）占用时提示一次。
+    private func applyCaptureHotkey(_ cfg: Config) {
+        let want = cfg.captureHotkey ?? true
+        guard want != (captureHotkey != nil) else { return }
+        captureHotkey?.unregister()
+        captureHotkey = nil
+        guard want else { Log.write("capture hotkey: off"); return }
+        let hk = Hotkey(keyCode: Capture.hotkeyKeyCode, modifiers: Capture.hotkeyModifiers) {
+            CaptureController.shared.start()
+        }
+        Log.write("capture hotkey ⌃⌘A: \(hk.status)")
+        captureHotkey = hk          // 失败也留着：避免每次保存设置都重试、重复提示；关再开开关会重试
+        guard hk.status != .ok else { return }
+        HUD.shared.show(L("⌃⌘A 已被其他 App 占用（例如微信截图），GestureKit 截图快捷键未生效"), duration: 3)
+    }
+
+    /// 衣架开关：悬停监听 + ⌃⌥T 一起开关
+    private func applyClothesline(_ cfg: Config) {
+        let on = cfg.clotheslineEnabled ?? true
+        ClotheslineController.shared.style = ClotheslineStyle(config: cfg.clotheslineStyle)
+        ClotheslineController.shared.setEnabled(on)
+        guard on != (clotheslineHotkey != nil) else { return }
+        clotheslineHotkey?.unregister()
+        clotheslineHotkey = nil
+        guard on else { return }
+        let hk = Hotkey(keyCode: ClotheslineController.hotkeyKeyCode, modifiers: ClotheslineController.hotkeyModifiers) {
+            ClotheslineController.shared.toggle()
+        }
+        Log.write("clothesline hotkey ⌃⌥T: \(hk.status)")
+        clotheslineHotkey = hk
     }
 
     // MARK: - Language

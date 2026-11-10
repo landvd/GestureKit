@@ -98,7 +98,7 @@ enum L10n {
 
     /// Core table + per-area tables (`L10n+<Area>.swift`), so areas can be
     /// translated independently. Later tables win on duplicate keys.
-    static let en: [String: String] = [enCore, enActions]
+    static let en: [String: String] = [enCore, enActions, enCapture]
         .reduce(into: [:]) { acc, t in acc.merge(t) { _, new in new } }
 
     // BEGIN-EN（一行一条；scripts/check-l10n.sh 依赖这个格式）

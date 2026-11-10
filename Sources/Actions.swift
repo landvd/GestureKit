@@ -382,6 +382,8 @@ final class Actions {
         case "mute":           sendSystemKey(7)
 
         // 截图
+        case "capture":          effects.postNotification(Capture.startNotification)   // 自带截图（CaptureOverlay）
+        case "toggleClothesline": effects.postNotification(ClotheslineController.toggleNotification)
         case "screenshotRegion": screenshot(["-i", "-x"])
         case "screenshotWindow": screenshot(["-w", "-x"])
         case "screenshotFull":   screenshot(["-x"])
