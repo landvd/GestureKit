@@ -112,7 +112,7 @@ final class PrefModel: ObservableObject {
 
     func exportRules() {
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["json"]
+        panel.allowedContentTypes = [.json]
         let f = DateFormatter(); f.dateFormat = "yyyyMMdd"
         panel.nameFieldStringValue = "GestureKit-rules-\(f.string(from: Date())).json"
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -126,7 +126,7 @@ final class PrefModel: ObservableObject {
 
     func importRules() {
         let panel = NSOpenPanel()
-        panel.allowedFileTypes = ["json"]
+        panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard let data = try? Data(contentsOf: url) else {
@@ -271,7 +271,7 @@ final class PrefModel: ObservableObject {
     /// doesn't define keep using 所有应用程序 — and becomes the selected group.
     func addApp() {
         let panel = NSOpenPanel()
-        panel.allowedFileTypes = ["app"]
+        panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.canChooseDirectories = false
         panel.message = L("选择一个应用程序，为它单独设置手势")
@@ -412,8 +412,8 @@ struct PreferencesView: View {
         .sheet(item: $model.editor) { state in
             RuleEditorView(model: model, state: state)
         }
-        .onChange(of: model.page) { _ in model.selectedRule = nil }
-        .onChange(of: model.selectedApp) { _ in model.selectedRule = nil }
+        .onChange(of: model.page) { model.selectedRule = nil }
+        .onChange(of: model.selectedApp) { model.selectedRule = nil }
     }
 
     private func enabledToggle(_ row: PrefModel.Row) -> some View {

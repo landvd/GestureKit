@@ -7,6 +7,7 @@
 #   - key 里不写 \" （中文文案用「」）
 #   - 动态 key（L(变量)）不在此检查范围，由 --selftest 的 i18n 断言覆盖
 set -u
+export LC_ALL=C   # 按字节比较；UTF-8 下 BSD uniq 会把不同的中文 key 误判为重复
 cd "$(dirname "$0")/.." || exit 2
 TABLE=Sources/L10n.swift
 [ -f "$TABLE" ] || { echo "check-l10n: $TABLE not found" >&2; exit 2; }

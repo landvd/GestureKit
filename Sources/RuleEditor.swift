@@ -328,7 +328,7 @@ final class RuleEditorState: ObservableObject, Identifiable {
     /// NSOpenPanel for an .app; fills bundle id + path.
     func chooseApp() {
         let panel = NSOpenPanel()
-        panel.allowedFileTypes = ["app"]
+        panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.canChooseDirectories = false
         panel.treatsFilePackagesAsDirectories = false

@@ -161,7 +161,7 @@ extension View {
             background(GeometryReader { g in
                 Color.clear
                     .onAppear { ClickTargets.frames[label] = g.frame(in: .named(ClickTargets.space)) }
-                    .onChange(of: g.frame(in: .named(ClickTargets.space))) { ClickTargets.frames[label] = $0 }
+                    .onChange(of: g.frame(in: .named(ClickTargets.space))) { _, f in ClickTargets.frames[label] = f }
             })
         } else {
             self

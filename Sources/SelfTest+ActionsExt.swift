@@ -174,16 +174,16 @@ extension SelfTest {
                         if attr == kAXFocusedWindowAttribute as String { return winEl }
                         if CFEqual(el, winEl) {
                             switch attr {
-                            case kAXPositionAttribute as String: return axPoint(100, 50)
-                            case kAXSizeAttribute as String: return axSize(800, 600)
-                            case kAXZoomButtonAttribute as String: return btnEl
+                            case kAXPositionAttribute: return axPoint(100, 50)
+                            case kAXSizeAttribute: return axSize(800, 600)
+                            case kAXZoomButtonAttribute: return btnEl
                             default: return nil
                             }
                         }
                         if CFEqual(el, btnEl) {
                             switch attr {
-                            case kAXPositionAttribute as String: return axPoint(buttonX, 56)
-                            case kAXSizeAttribute as String: return axSize(14, 16)
+                            case kAXPositionAttribute: return axPoint(buttonX, 56)
+                            case kAXSizeAttribute: return axSize(14, 16)
                             default: return nil
                             }
                         }

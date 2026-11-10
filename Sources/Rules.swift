@@ -155,7 +155,6 @@ struct Config: Codable {
     static var defaultConfig: Config {
         let cmd: UInt32 = 0x00100000          // .maskCommand
         let cmdCtrl: UInt32 = 0x00140000      // .maskCommand | .maskControl
-        let cmdShift: UInt32 = 0x00120000
 
         func shortcut(_ key: Int, _ mods: UInt32, _ label: String) -> ActionSpec {
             ActionSpec(type: "shortcut", keyCode: key, modifiers: mods, label: label,

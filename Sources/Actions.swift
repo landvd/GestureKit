@@ -220,7 +220,7 @@ final class Actions {
                 for w in windows(of: app) where isMinimized(w) {
                     setMinimized(w, false)
                     NSRunningApplication(processIdentifier: running.processIdentifier)?
-                        .activate(options: [.activateIgnoringOtherApps])
+                        .activate()
                     effects.axPerform(w, kAXRaiseAction as String)
                     return
                 }
@@ -547,7 +547,7 @@ final class Actions {
         let running = effects.runningApplications
         let alive = Set(running.map(\.processIdentifier))
         guard let pid = Actions.onMain({ appHistory.previous(alive: alive) }) else { return }
-        running.first { $0.processIdentifier == pid }?.activate(options: [.activateIgnoringOtherApps])
+        running.first { $0.processIdentifier == pid }?.activate()
     }
 
     /// Media / brightness keys via NX_KEYTYPE system-defined events.
@@ -670,7 +670,7 @@ final class Actions {
             effects.openApplication(URL(fileURLWithPath: p)); return
         }
         if !bid.isEmpty, let running = effects.runningApplications.first(where: { $0.bundleIdentifier == bid }) {
-            running.activate(options: [.activateIgnoringOtherApps]); return
+            running.activate(); return
         }
         effects.log("openApp: app not found (bundleID=\(bid.isEmpty ? "-" : bid))")
     }
