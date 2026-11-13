@@ -30,6 +30,10 @@ final class ClotheslineController: NSObject {
     private var mouseEntered = false
     /// 正在从卡片往外拖：不收起
     var dragging = false
+    /// 右键菜单开着：不收起（鼠标在菜单上就算离开了衣架）
+    var menuOpen = false
+    /// 拖动中、菜单开着、「撤销」提示还在：都不自动收起
+    private var holdOpen: Bool { dragging || menuOpen || undoWork != nil }
     private(set) var isShown = false
     private(set) var enabled = false
     /// 衣架样式（设置或衣架右键改）；换了就重摆
@@ -97,6 +101,37 @@ final class ClotheslineController: NSObject {
 
     func reload() { lineView?.reload(dropping: nil) }
 
+    /// 右键「清空衣架」：直接清掉未固定的图（固定的保留），衣架上提示 5 秒、可撤销
+    private var undoWork: DispatchWorkItem?
+    static let undoSeconds: TimeInterval = 5
+
+    func clearUnpinned() {
+        undoWork?.cancel()
+        let gone = store.clearUnpinned()
+        guard !gone.isEmpty else { return }
+        Log.write("clothesline: cleared \(gone.count) unpinned, \(store.items.count) pinned kept")
+        lineView?.reload(dropping: nil)
+        lineView?.showUndo(count: gone.count) { [weak self] in
+            guard let self else { return }
+            self.undoWork?.cancel()
+            self.undoWork = nil
+            self.store.restore(gone)
+            Log.write("clothesline: clear undone (\(gone.count))")
+            self.lineView?.hideUndo()
+            self.lineView?.reload(dropping: nil)
+            self.lineView?.swingAll()
+        }
+        let w = DispatchWorkItem { [weak self] in
+            self?.undoWork = nil
+            self?.store.discardUndo()
+            self?.lineView?.hideUndo()
+        }
+        undoWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + ClotheslineController.undoSeconds, execute: w)
+    }
+
+    var hasUnpinned: Bool { store.items.contains { !$0.pinned } }
+
     // MARK: - Hover
 
     private func mouseMoved() {
@@ -113,7 +148,7 @@ final class ClotheslineController: NSObject {
                 mouseEntered = mouseEntered || (panel?.frame.contains(p) ?? false)
                 if mouseEntered { sticky = false; autoHideWork?.cancel() }
                 leaveWork?.cancel(); leaveWork = nil
-            } else if leaveWork == nil, !sticky, !dragging, autoHideWork == nil || mouseEntered {
+            } else if leaveWork == nil, !sticky, !holdOpen, autoHideWork == nil || mouseEntered {
                 let w = DispatchWorkItem { [weak self] in self?.leaveWork = nil; self?.hide(animated: true) }
                 leaveWork = w
                 DispatchQueue.main.asyncAfter(deadline: .now() + ClotheslineTrigger.leaveDelay, execute: w)
@@ -137,7 +172,7 @@ final class ClotheslineController: NSObject {
     }
 
     private func clickedElsewhere() {
-        guard isShown, !dragging, let panel, !panel.frame.contains(NSEvent.mouseLocation) else { return }
+        guard isShown, !dragging, !menuOpen, let panel, !panel.frame.contains(NSEvent.mouseLocation) else { return }
         hide(animated: true)
     }
 
@@ -227,11 +262,15 @@ final class ClotheslineController: NSObject {
 // MARK: - Line
 
 /// 绳子 + 卡片。视图翻转（左上原点），与 ClotheslineLayout 一致。
-final class ClotheslineView: NSView {
+final class ClotheslineView: NSView, NSMenuDelegate {
 
     private weak var controller: ClotheslineController?
     private var cards: [ClotheslineCard] = []
     private let emptyLabel = NSTextField(labelWithString: L("截图后会挂在这里"))
+    /// 「已清空 N 张　撤销」
+    private let undoBar = NSStackView()
+    private let undoLabel = NSTextField(labelWithString: "")
+    private var undoAction: (() -> Void)?
     private var preview: NSPanel?
     private var previewWork: DispatchWorkItem?
 
@@ -243,6 +282,17 @@ final class ClotheslineView: NSView {
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.isHidden = true
         addSubview(emptyLabel)
+        undoLabel.font = .systemFont(ofSize: 11)
+        undoLabel.textColor = .secondaryLabelColor
+        let undoButton = NSButton(title: L("撤销"), target: self, action: #selector(undoClicked))
+        undoButton.bezelStyle = .inline
+        undoButton.controlSize = .small
+        undoBar.orientation = .horizontal
+        undoBar.spacing = 8
+        undoBar.addArrangedSubview(undoLabel)
+        undoBar.addArrangedSubview(undoButton)
+        undoBar.isHidden = true
+        addSubview(undoBar)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -297,10 +347,45 @@ final class ClotheslineView: NSView {
         swingAll()
     }
 
-    /// 衣架空白处右键：换样式
+    func showUndo(count: Int, undo: @escaping () -> Void) {
+        undoAction = undo
+        undoLabel.stringValue = L("已清空 %d 张", count)
+        undoBar.isHidden = false
+        emptyLabel.isHidden = true
+        let size = undoBar.fittingSize
+        undoBar.frame = NSRect(x: (bounds.width - size.width) / 2,
+                               y: ClotheslineLayout.lineY + style.sag + 8, width: size.width, height: size.height)
+    }
+
+    func hideUndo() {
+        undoAction = nil
+        undoBar.isHidden = true
+        emptyLabel.isHidden = !(controller?.store.items.isEmpty ?? true)
+    }
+
+    @objc private func undoClicked() { undoAction?() }
+
+    /// 右键菜单里的「清空衣架（保留固定的）」：没有可清的就灰掉
+    static func clearItem(controller: ClotheslineController?, target: AnyObject) -> NSMenuItem {
+        let i = NSMenuItem(title: L("清空衣架（保留固定的）"), action: #selector(ClotheslineView.clearLine), keyEquivalent: "")
+        i.target = target
+        i.isEnabled = controller?.hasUnpinned ?? false
+        return i
+    }
+
+    @objc func clearLine() { controller?.clearUnpinned() }
+
+    func menuWillOpen(_ menu: NSMenu) { controller?.menuOpen = true }
+    func menuDidClose(_ menu: NSMenu) { controller?.menuOpen = false }
+
+    /// 衣架空白处右键：清空、换样式
     override func menu(for event: NSEvent) -> NSMenu? {
         hidePreview()
         let m = NSMenu()
+        m.delegate = self
+        m.autoenablesItems = false
+        m.addItem(ClotheslineView.clearItem(controller: controller, target: self))
+        m.addItem(.separator())
         let title = NSMenuItem(title: L("衣架样式"), action: nil, keyEquivalent: "")
         title.isEnabled = false
         m.addItem(title)
@@ -340,7 +425,7 @@ final class ClotheslineView: NSView {
             return c
         }
         old.values.forEach { $0.removeFromSuperview() }
-        emptyLabel.isHidden = !items.isEmpty
+        emptyLabel.isHidden = !items.isEmpty || !undoBar.isHidden
         if items.isEmpty {
             emptyLabel.sizeToFit()
             emptyLabel.frame.origin = NSPoint(x: (bounds.width - emptyLabel.frame.width) / 2,
@@ -665,6 +750,11 @@ final class ClotheslineCard: NSView, NSDraggingSource {
         m.addItem(.separator())
         add(item.pinned ? L("取消固定") : L("固定在衣架上"), #selector(togglePin))
         add(L("从衣架上取下"), #selector(deleteItem))
+        if let line {
+            m.delegate = line
+            m.autoenablesItems = false
+            m.addItem(ClotheslineView.clearItem(controller: controller, target: line))
+        }
         m.addItem(.separator())
         if let line {
             let sub = NSMenu()

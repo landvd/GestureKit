@@ -64,6 +64,31 @@ extension SelfTest {
             try? fm.removeItem(at: s.url(s.ordered[0]))
             check("line: an entry whose file is gone is dropped on load", ClotheslineStore(dir: dir).items.count == 18)
 
+            // 一键清空（保留固定的）+ 撤销
+            s.remove(s.ordered[0].id)           // 上面那条测试故意删了它的文件，先取下
+            let keep = s.ordered.last!
+            s.setPinned(keep.id, true)
+            let before = s.ordered.map(\.id)
+            let gone = s.clearUnpinned()
+            check("line: one-click clear keeps only pinned shots",
+                  s.items.map(\.id) == [keep.id] && gone.count == before.count - 1
+                    && fm.fileExists(atPath: s.url(keep).path) && !fm.fileExists(atPath: s.url(gone[0]).path))
+            check("line: cleared shots wait in the undo folder",
+                  fm.fileExists(atPath: s.undoDir.appendingPathComponent(gone[0].file).path))
+            s.restore(gone)
+            check("line: undo puts every shot back in order",
+                  s.ordered.map(\.id) == before && fm.fileExists(atPath: s.url(gone[0]).path)
+                    && !fm.fileExists(atPath: s.undoDir.path))
+            let gone2 = s.clearUnpinned()
+            s.discardUndo()
+            check("line: after the undo window the files are really gone",
+                  !fm.fileExists(atPath: s.undoDir.path) && !gone2.isEmpty && s.items.count == 1)
+            check("line: clearing with only pinned shots does nothing", s.clearUnpinned().isEmpty && s.items.count == 1)
+            _ = s.add(png: png, pixelWidth: 64, pixelHeight: 32, scale: 2, date: t0 + 100)
+            _ = s.clearUnpinned()
+            check("line: leftovers in the undo folder are deleted on the next launch",
+                  fm.fileExists(atPath: s.undoDir.path) && { _ = ClotheslineStore(dir: dir); return !fm.fileExists(atPath: s.undoDir.path) }())
+
             s.removeAll()
             check("line: clearing removes everything", s.items.isEmpty && ClotheslineStore(dir: dir).items.isEmpty)
         }

@@ -32,6 +32,7 @@ final class ClotheslineStore {
     init(dir: URL = ClotheslineStore.defaultDir) {
         self.dir = dir
         load()
+        discardUndo()          // 上次退出前没来得及删的「已清空」图
     }
 
     /// 衣架上从左到右：固定的（按挂上的先后），然后其余（旧 → 新）
@@ -92,6 +93,42 @@ final class ClotheslineStore {
         items.removeAll()
         save()
     }
+
+    // MARK: - 一键清空（可撤销）
+
+    /// 撤销区：清空时图片先挪到这里，撤销就挪回去，过几秒 discardUndo() 再真正删
+    var undoDir: URL { dir.appendingPathComponent("Undo") }
+
+    /// 清掉所有未固定的图（固定的保留）；返回被清掉的条目，供撤销
+    @discardableResult
+    func clearUnpinned() -> [Item] {
+        discardUndo()
+        let gone = items.filter { !$0.pinned }
+        guard !gone.isEmpty else { return [] }
+        try? FileManager.default.createDirectory(at: undoDir, withIntermediateDirectories: true)
+        for item in gone {
+            try? FileManager.default.moveItem(at: url(item), to: undoDir.appendingPathComponent(item.file))
+            try? FileManager.default.removeItem(at: dragDir(item))
+        }
+        items.removeAll { !$0.pinned }
+        save()
+        return gone
+    }
+
+    /// 撤销清空：图片挪回来、条目放回去（文件已不在的跳过）
+    func restore(_ gone: [Item]) {
+        for item in gone {
+            let from = undoDir.appendingPathComponent(item.file)
+            guard (try? FileManager.default.moveItem(at: from, to: url(item))) != nil else { continue }
+            if !items.contains(where: { $0.id == item.id }) { items.append(item) }
+        }
+        dropOverflow()
+        save()
+        discardUndo()
+    }
+
+    /// 撤销期过了：真正删掉
+    func discardUndo() { try? FileManager.default.removeItem(at: undoDir) }
 
     // MARK: - Files
 

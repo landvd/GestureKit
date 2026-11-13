@@ -55,6 +55,8 @@ extension L10n {
         "和纸胶带": "Washi Tape",
         "衣架样式": "Line Style",
         "衣架样式：": "Line style:",
+        "已清空 %d 张": "Cleared %d",
+        "清空衣架（保留固定的）": "Clear the Line (Keep Pinned)",
     ]
     // END-EN
 }
